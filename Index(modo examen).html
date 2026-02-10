@@ -1,0 +1,2928 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Tutor IA - Modo Choice</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
+        .loader { border: 3px solid #f3f3ff; border-top: 3px solid #3498db; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Tabs */
+        .tab-button { transition: all 0.2s; border-bottom: 3px solid transparent; color: #6b7280; }
+        .tab-button.active { border-color: #2563eb; color: #1d4ed8; font-weight: 700; }
+        .tab-panel { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Cards */
+        .mode-card {
+            display: flex; flex-direction: column; align-items: center; padding: 24px;
+            border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s;
+            background: #fff; text-align: center;
+        }
+        .mode-card:hover { border-color: #2563eb; transform: translateY(-3px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        
+        /* Progress & Modals */
+        #progress-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 50; align-items: center; justify-content: center; }
+        .progress-box { background: white; padding: 24px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
+        .progress-bar { width: 100%; height: 10px; background: #e5e7eb; border-radius: 5px; overflow: hidden; margin-top: 15px; }
+        .progress-fill { height: 100%; background: #2563eb; width: 0%; transition: width 0.3s; }
+        
+        /* Toast Notification */
+        #toast {
+            visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 100; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 17px; opacity: 0; transition: opacity 0.5s, bottom 0.5s;
+        }
+        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+        #toast.success { background-color: #10b981; } /* Green */
+        #toast.error { background-color: #ef4444; } /* Red */
+
+        /* Choice Specific */
+        .mcq-option {
+            display: flex; align-items: center; padding: 12px; margin-bottom: 8px;
+            border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .mcq-option:hover { background-color: #f9fafb; }
+        .mcq-option.selected { border-color: #2563eb; background-color: #eff6ff; }
+        .mcq-option.correct { border-color: #10b981; background-color: #d1fae5; }
+        .mcq-option.incorrect { border-color: #ef4444; background-color: #fee2e2; }
+        
+        .qa-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; position: relative; }
+        .accordion-btn {
+            width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center;
+            padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; font-weight: 600; margin-bottom: 4px;
+        }
+        .accordion-content { display: none; padding: 0 0 12px 0; border-left: 2px solid #e5e7eb; margin-bottom: 8px; background: #fff; }
+        .accordion-content.open { display: block; }
+        
+        /* New Folder Styles */
+        .folder-header {
+            background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af;
+            padding: 10px 14px; border-radius: 8px; font-weight: 700;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
+            cursor: pointer; /* Explicit cursor */
+        }
+        .folder-header:hover { background-color: #dbeafe; }
+        .folder-content {
+            display: none; margin-left: 12px; padding-left: 12px; border-left: 2px solid #dbeafe;
+        }
+        .folder-content.open { display: block; }
+        
+        /* Topic Styles Refined for Expansion */
+        .topic-wrapper { margin-bottom: 4px; }
+        .topic-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; background: white; border: 1px solid #f3f4f6;
+            border-radius: 6px; transition: all 0.2s; cursor: pointer;
+        }
+        .topic-header:hover { background: #f9fafb; border-color: #e5e7eb; }
+        .topic-header.selected { background: #f0fdf4; border-color: #bbf7d0; }
+        
+        .topic-items-container {
+            display: none; /* Hidden by default */
+            margin-left: 20px;
+            border-left: 2px solid #f3f4f6;
+            padding-left: 10px;
+            padding-top: 4px;
+            padding-bottom: 8px;
+        }
+        .topic-items-container.open { display: block; animation: fadeIn 0.2s; }
+        
+        .question-item {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 4px;
+            padding: 8px; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.85rem; transition: background 0.2s;
+        }
+        .question-item:hover { border-color: #93c5fd; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .question-item.selected { background: #eff6ff; border-color: #3b82f6; }
+
+        /* Practice Sidebar Nested */
+        .sidebar-folder-btn {
+            width: 100%; text-align: left; padding: 8px; font-weight: 600; color: #374151;
+            display: flex; justify-content: space-between; align-items: center;
+            background: #f3f4f6; border-radius: 6px; margin-bottom: 2px;
+        }
+        .sidebar-folder-content { display: none; padding-left: 8px; }
+        .sidebar-folder-content.open { display: block; }
+        
+        /* Updated Sidebar Topic Button */
+        .sidebar-topic-btn {
+            display: flex; flex-direction: column; width: 100%; padding: 8px 10px;
+            font-size: 0.9rem; color: #6b7280; border-radius: 6px;
+            background: #fff; border: 1px solid transparent;
+            margin-bottom: 4px;
+        }
+        .sidebar-topic-btn:hover { background: #f9fafb; border-color: #e5e7eb; color: #111827; }
+        .sidebar-topic-btn.active { background: #dbeafe; color: #1e40af; font-weight: 600; border-color: #bfdbfe; }
+
+        .topic-progress-bar-bg {
+            width: 100%; height: 6px; background-color: #e5e7eb; border-radius: 3px; margin-top: 6px; overflow: hidden;
+        }
+        .topic-progress-bar-fill {
+            height: 100%; background-color: #10b981; border-radius: 3px; width: 0%; transition: width 0.5s ease-out;
+        }
+
+        /* Exam Mode Specifics */
+        .timer-badge {
+            position: fixed; top: 80px; right: 20px; z-index: 60;
+            background: #fff; border: 2px solid #ef4444; color: #ef4444;
+            font-weight: 700; padding: 8px 16px; border-radius: 50px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: monospace; font-size: 1.2rem;
+        }
+        .exam-option.selected { border-color: #2563eb; background-color: #eff6ff; }
+        /* Disable hover feedback in exam mode if needed, but keeping simple for selection */
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Toast Notification -->
+    <div id="toast">Notificación</div>
+
+    <!-- Modal Progreso -->
+    <div id="progress-modal">
+        <div class="progress-box">
+            <h3 id="progress-title" class="text-lg font-bold mb-2">Procesando...</h3>
+            <div class="progress-bar"><div id="progress-bar-fill" class="progress-fill"></div></div>
+            <p id="progress-step" class="text-sm text-gray-500 mt-2 italic">Iniciando...</p>
+        </div>
+    </div>
+    
+    <!-- Modal Configuración Examen -->
+    <div id="exam-config-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div class="text-center mb-6">
+                <div class="bg-red-100 p-3 rounded-full inline-block mb-3">
+                    <svg data-lucide="timer" class="w-8 h-8 text-red-600"></svg>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900">Configurar Examen</h3>
+                <p class="text-sm text-gray-500">Simulación real: preguntas mezcladas y tiempo limitado.</p>
+            </div>
+            
+            <div class="space-y-5">
+                <!-- Selección de Temas -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="font-bold text-gray-700">1. Seleccionar Temas</label>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="exam-select-all" class="w-4 h-4 text-blue-600 rounded">
+                            <label for="exam-select-all" class="text-xs text-gray-600 cursor-pointer select-none">Todos</label>
+                        </div>
+                    </div>
+                    <div id="exam-topics-container" class="border rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50 text-sm space-y-2">
+                        <!-- Checkboxes inyectados por JS -->
+                        <p class="text-gray-400 italic">Cargando temas...</p>
+                    </div>
+                </div>
+
+                <!-- Configuración Numérica -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Preguntas</label>
+                        <input type="number" id="exam-qty" class="w-full p-2 border rounded focus:ring-2 focus:ring-red-500 outline-none" value="10" min="1" max="100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Tiempo (min)</label>
+                        <input type="number" id="exam-time" class="w-full p-2 border rounded focus:ring-2 focus:ring-red-500 outline-none" value="15" min="1">
+                    </div>
+                </div>
+
+                <!-- Feedback -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Modo de Corrección</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer bg-gray-50 p-2 rounded border hover:bg-gray-100 flex-1">
+                            <input type="radio" name="exam-feedback" value="immediate" class="text-red-600">
+                            <span class="text-sm">Al responder</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer bg-gray-50 p-2 rounded border hover:bg-gray-100 flex-1">
+                            <input type="radio" name="exam-feedback" value="end" checked class="text-red-600">
+                            <span class="text-sm">Al finalizar</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex gap-3">
+                <button onclick="document.getElementById('exam-config-modal').style.display='none'" class="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button id="start-exam-btn" class="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-lg transform transition active:scale-95">¡Comenzar Examen!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interfaz de Examen Activo -->
+    <div id="exam-interface" class="hidden fixed inset-0 bg-gray-100 z-50 flex flex-col overflow-y-auto">
+        <div id="exam-timer-display" class="timer-badge">00:00</div>
+        
+        <div class="max-w-3xl mx-auto w-full p-4 md:p-8 flex-1 flex flex-col">
+            <!-- Header Examen -->
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800">Examen en Curso</h2>
+                <div class="flex items-center gap-2">
+                    <span id="exam-progress-text" class="text-sm font-mono bg-gray-200 px-2 py-1 rounded">1/10</span>
+                    <button onclick="cancelExam()" class="text-xs bg-red-200 text-red-800 px-2 py-1 rounded font-bold hover:bg-red-300">X</button>
+                </div>
+            </div>
+
+            <!-- Área de Pregunta -->
+            <div id="exam-question-area" class="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-200 flex-1">
+                <!-- Contenido dinámico -->
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="mt-6 flex justify-end">
+                <button id="exam-next-btn" class="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Siguiente <svg data-lucide="arrow-right" class="w-5 h-5"></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados Examen -->
+    <div id="exam-results" class="hidden fixed inset-0 bg-white z-50 overflow-y-auto p-4 md:p-8">
+        <div class="max-w-4xl mx-auto">
+            <div class="text-center mb-8">
+                <div class="inline-block p-4 bg-blue-50 rounded-full mb-4">
+                    <svg data-lucide="clipboard-check" class="w-12 h-12 text-blue-600"></svg>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Resultados del Examen</h2>
+                <p class="text-gray-500">Resumen de tu desempeño</p>
+            </div>
+
+            <!-- Score Card -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="col-span-1 bg-white border-2 border-blue-100 p-6 rounded-xl text-center shadow-sm">
+                    <p class="text-gray-500 text-sm font-bold uppercase mb-1">Calificación</p>
+                    <div id="result-score-percent" class="text-5xl font-extrabold text-blue-600">0%</div>
+                    <p id="result-score-fraction" class="text-gray-400 mt-2">0/0</p>
+                </div>
+                <div class="col-span-2 bg-gray-50 p-6 rounded-xl border border-gray-200">
+                    <h4 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <svg data-lucide="bar-chart-2" class="w-5 h-5 text-gray-600"></svg> Análisis por Tema
+                    </h4>
+                    <div id="result-topics-list" class="space-y-3">
+                        <!-- Barras de progreso por tema -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Errores -->
+            <div class="border-t pt-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 text-red-600">Preguntas Incorrectas y Justificación</h3>
+                <div id="result-errors-list" class="space-y-6">
+                    <!-- Errores inyectados aquí -->
+                </div>
+                <div id="result-no-errors" class="hidden text-center py-10 text-green-600 bg-green-50 rounded-xl">
+                    <svg data-lucide="check-circle" class="w-12 h-12 mx-auto mb-2"></svg>
+                    <p class="font-bold text-lg">¡Impresionante! Sin errores.</p>
+                </div>
+            </div>
+
+            <div class="mt-10 text-center">
+                <button onclick="closeExamResults()" class="px-8 py-3 bg-gray-800 text-white font-bold rounded-lg hover:bg-black transition">Volver al Menú</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header, Main, Modals anteriores (Mantenidos) -->
+    <!-- (Solo se muestran partes relevantes cambiadas o necesarias para el contexto) -->
+    
+    <!-- Modal Nueva Materia -->
+    <div id="new-subject-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg w-full max-w-sm shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Crear Nueva Materia</h3>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre de la materia:</label>
+            <input type="text" id="new-subject-input" class="w-full p-2 border border-gray-300 rounded mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Anatomía">
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('new-subject-modal').style.display='none'" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="confirm-new-subject" class="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">Crear</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Nueva Carpeta -->
+    <div id="new-folder-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg w-full max-w-sm shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Crear Carpeta</h3>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre de la carpeta:</label>
+            <input type="text" id="create-folder-input" class="w-full p-2 border border-gray-300 rounded mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Unidad 1">
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('new-folder-modal').style.display='none'" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="confirm-create-folder" class="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">Crear</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Mover a Carpeta (Temas completos) -->
+    <div id="move-folder-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg w-full max-w-sm shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Mover Temas</h3>
+            <p class="text-sm text-gray-600 mb-2">Mover los temas seleccionados a:</p>
+            
+            <div class="mb-4">
+                <label class="flex items-center gap-2 mb-2 cursor-pointer">
+                    <input type="radio" name="folder-dest" value="existing" checked class="text-blue-600">
+                    <span class="text-sm font-medium">Carpeta Existente</span>
+                </label>
+                <select id="existing-folder-select" class="w-full p-2 border rounded text-sm bg-gray-50 mb-4">
+                    <option value="">-- Seleccionar --</option>
+                </select>
+
+                <label class="flex items-center gap-2 mb-2 cursor-pointer">
+                    <input type="radio" name="folder-dest" value="new" class="text-blue-600">
+                    <span class="text-sm font-medium">Nueva Carpeta</span>
+                </label>
+                <input type="text" id="new-folder-input" class="w-full p-2 border rounded text-sm" placeholder="Nombre de la carpeta..." disabled>
+            </div>
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('move-folder-modal').style.display='none'" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="confirm-move-folder" class="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">Mover</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Mover Preguntas (Items Individuales) -->
+    <div id="move-questions-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg w-full max-w-sm shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-2">Reorganizar Preguntas</h3>
+            <p id="move-q-count" class="text-xs text-gray-500 mb-4 font-bold uppercase tracking-wider">0 Items seleccionados</p>
+            
+            <!-- Paso 1: Carpeta -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">1. Carpeta de Destino</label>
+                <select id="mq-folder-select" class="w-full p-2 border rounded text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Seleccionar --</option>
+                </select>
+            </div>
+
+            <!-- Paso 2: Tema -->
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">2. Tema / Subtema</label>
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="radio" name="mq-topic-mode" value="existing" checked id="mq-mode-existing">
+                    <select id="mq-topic-select" class="flex-1 p-2 border rounded text-sm bg-gray-50" disabled>
+                        <option value="">-- Selecciona carpeta primero --</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="radio" name="mq-topic-mode" value="new" id="mq-mode-new">
+                    <input type="text" id="mq-new-topic" class="flex-1 p-2 border rounded text-sm" placeholder="Nuevo Tema..." disabled>
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('move-questions-modal').style.display='none'" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                <button id="confirm-move-questions" class="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 shadow">Mover Items</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Configuración (API KEY & USER) -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl transform transition-all">
+            <div class="text-center mb-6">
+                <div class="bg-blue-100 p-3 rounded-full inline-block mb-3">
+                    <svg data-lucide="user-cog" class="w-8 h-8 text-blue-600"></svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900">Configuración</h3>
+                <p class="text-sm text-gray-500 mt-1">Tu identidad y acceso a IA.</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">ID de Usuario (Login)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="setting-user-id" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 font-mono text-sm" placeholder="Ingresa tu ID...">
+                        <button id="generate-id-btn" class="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700" title="Generar ID Aleatorio">
+                            <svg data-lucide="dice-5" class="w-5 h-5"></svg>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Usa este ID para volver a entrar en otros dispositivos.</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Gemini API Key</label>
+                    <input type="password" id="setting-api-key" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="AIzaSy...">
+                    <p class="text-xs text-gray-500 mt-1">Tu llave de Google AI. <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline">Conseguir aquí</a>.</p>
+                </div>
+            </div>
+
+            <button id="save-settings-btn" class="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-lg">Guardar y Entrar</button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm z-10 flex-none">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                        <svg data-lucide="check-square" class="w-8 h-8 text-blue-600"></svg> Simulador Tutor IA
+                    </h1>
+                    <div class="flex items-center gap-2 mt-1">
+                         <span class="relative flex h-2 w-2">
+                          <span id="ping-dot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span id="static-dot" class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                        <p id="user-display" class="text-xs text-gray-500 font-mono">Desconectado</p>
+                    </div>
+                </div>
+                
+                <!-- Selector Materia y Config -->
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                        <select id="subject-selector" class="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer w-40">
+                            <option value="">-- Materia --</option>
+                        </select>
+                        <button id="btn-add-subject" class="bg-white border border-gray-300 rounded p-1 hover:bg-gray-100" title="Crear Nueva Materia">
+                            <svg data-lucide="plus" class="w-4 h-4 text-gray-600"></svg>
+                        </button>
+                    </div>
+                    <button id="open-settings-btn" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 border border-gray-200 transition" title="Configuración">
+                        <svg data-lucide="settings" class="w-5 h-5"></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Tabs -->
+            <nav class="flex space-x-6 mt-6 border-b border-gray-200 overflow-x-auto">
+                <button id="tab-material-btn" class="tab-button active py-2 px-1">1. Material</button>
+                <button id="tab-choice-btn" class="tab-button py-2 px-1">2. Practicar Choice</button>
+                <button id="tab-review-btn" class="tab-button py-2 px-1">3. Repasar (Errores)</button>
+                <button id="tab-topics-btn" class="tab-button py-2 px-1">Administrar</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-4 md:p-6">
+        <div class="max-w-5xl mx-auto bg-white shadow-lg rounded-xl p-6 min-h-[500px]">
+
+            <!-- 1. MATERIAL -->
+            <div id="tab-material" class="tab-panel active space-y-4">
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                    <p class="text-sm text-blue-700">Carga tu material aquí. La IA lo usará para generar preguntas y justificar respuestas.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-semibold text-gray-700">Temario / Syllabus</label>
+                            <button class="upload-btn text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" data-target="syllabus">Subir PDF</button>
+                        </div>
+                        <textarea id="syllabus" class="w-full p-2 border rounded-lg text-sm h-32" placeholder="Pega el programa de la materia..."></textarea>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-semibold text-gray-700">Exámenes Anteriores (Clave)</label>
+                            <button class="upload-btn text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" data-target="experiences">Subir PDF</button>
+                        </div>
+                        <textarea id="experiences" class="w-full p-2 border rounded-lg text-sm h-32" placeholder="Pega preguntas de años anteriores..."></textarea>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="font-semibold text-gray-700">Teoría y Apuntes</label>
+                        <button class="upload-btn text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" data-target="theory">Subir PDF</button>
+                    </div>
+                    <textarea id="theory" class="w-full p-2 border rounded-lg text-sm h-40" placeholder="Pega aquí tu resumen o teoría..."></textarea>
+                </div>
+                <button id="save-material" class="w-full py-2 bg-gray-800 text-white font-bold rounded hover:bg-gray-900 transition">Guardar Material</button>
+            </div>
+
+            <!-- 2. MODO CHOICE -->
+            <div id="tab-choice" class="tab-panel space-y-6">
+                <!-- Selector de Modo dentro de Choice -->
+                <div id="choice-menu" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div id="btn-analyze-choice" class="mode-card group">
+                        <div class="p-3 bg-purple-100 rounded-full mb-3 group-hover:bg-purple-200 transition">
+                            <svg data-lucide="scan-line" class="w-8 h-8 text-purple-600"></svg>
+                        </div>
+                        <h3 class="text-lg font-bold">Analizar Exámenes</h3>
+                        <p class="text-sm text-gray-500 mt-1">Pega un examen choice y la IA extraerá las preguntas.</p>
+                    </div>
+                    <div id="btn-generate-choice" class="mode-card group">
+                        <div class="p-3 bg-green-100 rounded-full mb-3 group-hover:bg-green-200 transition">
+                            <svg data-lucide="sparkles" class="w-8 h-8 text-green-600"></svg>
+                        </div>
+                        <h3 class="text-lg font-bold">Generar Preguntas</h3>
+                        <p class="text-sm text-gray-500 mt-1">Crear preguntas nuevas basadas en tu teoría.</p>
+                    </div>
+                    <div id="btn-add-manual" class="mode-card group">
+                        <div class="p-3 bg-orange-100 rounded-full mb-3 group-hover:bg-orange-200 transition">
+                            <svg data-lucide="pen-tool" class="w-8 h-8 text-orange-600"></svg>
+                        </div>
+                        <h3 class="text-lg font-bold">Agregar Preguntas</h3>
+                        <p class="text-sm text-gray-500 mt-1">Manual.</p>
+                    </div>
+                    <!-- NUEVO BOTÓN MODO EXAMEN -->
+                    <div id="btn-exam-mode" class="mode-card group border-red-200 bg-red-50 hover:border-red-400">
+                        <div class="p-3 bg-white rounded-full mb-3 shadow-sm">
+                            <svg data-lucide="timer" class="w-8 h-8 text-red-600"></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-red-700">Modo Examen</h3>
+                        <p class="text-sm text-red-600 mt-1">Simulacro con tiempo.</p>
+                    </div>
+                    
+                    <div id="btn-practice-choice" class="mode-card group md:col-span-4 border-blue-200 bg-blue-50 hover:bg-blue-100 mt-2">
+                        <div class="p-3 bg-white rounded-full mb-3 shadow-sm">
+                            <svg data-lucide="play-circle" class="w-8 h-8 text-blue-600"></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-blue-800">Ir a Práctica Libre</h3>
+                        <p class="text-sm text-blue-600 mt-1">Sin tiempo, con feedback inmediato.</p>
+                    </div>
+                </div>
+
+                <!-- Panel Analizar/Generar/Manual -->
+                <div id="choice-tools" class="hidden space-y-4">
+                    <button class="back-to-menu text-sm text-gray-500 flex items-center hover:text-gray-800 mb-2">
+                        <svg data-lucide="arrow-left" class="w-4 h-4 mr-1"></svg> Volver
+                    </button>
+                    
+                    <!-- Herramienta: Analizar -->
+                    <div id="tool-analyze" class="hidden">
+                         <div class="flex justify-between items-center mb-2">
+                             <h3 class="font-bold text-lg">Analizar PDF/Texto Choice</h3>
+                             <button class="upload-btn text-xs bg-purple-100 text-purple-700 font-bold px-3 py-1.5 rounded hover:bg-purple-200 flex items-center gap-1 transition-colors" data-target="raw-choice-text">
+                                <svg data-lucide="file-up" class="w-4 h-4"></svg> Subir PDF
+                             </button>
+                        </div>
+                        <textarea id="raw-choice-text" rows="6" class="w-full p-2 border rounded text-sm mb-2 focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Pega el texto del examen aquí o sube un archivo..."></textarea>
+                        <button id="run-analyze" class="w-full py-2 bg-purple-600 text-white font-bold rounded hover:bg-purple-700 shadow-md transition-transform active:scale-95">Procesar con IA</button>
+                    </div>
+
+                    <!-- Herramienta: Generar -->
+                    <div id="tool-generate" class="hidden">
+                        <h3 class="font-bold text-lg mb-2">Generar Preguntas Nuevas</h3>
+                        
+                        <!-- Selector de Fuente -->
+                        <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                            <div class="flex items-center gap-2">
+                                <input type="radio" id="source-material" name="gen-source" value="material" checked class="w-4 h-4 text-green-600">
+                                <label for="source-material" class="text-sm font-medium cursor-pointer">Todo el Material</label>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="radio" id="source-custom" name="gen-source" value="custom" class="w-4 h-4 text-green-600">
+                                <label for="source-custom" class="text-sm font-medium cursor-pointer">Texto Específico</label>
+                            </div>
+                        </div>
+
+                        <!-- Textarea para Texto Específico (Oculto por defecto) -->
+                        <div id="custom-source-container" class="hidden mb-4">
+                            <textarea id="custom-source-text" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none" rows="4" placeholder="Pega aquí el texto, párrafo o página sobre la que quieres generar preguntas..."></textarea>
+                        </div>
+
+                        <div class="flex gap-2 items-center mb-4">
+                            <label>Cantidad:</label>
+                            <select id="gen-qty" class="p-1 border rounded"><option>3</option><option selected>5</option><option>10</option></select>
+                        </div>
+                        <button id="run-generate" class="w-full py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700">Generar (Previsualizar)</button>
+                    </div>
+
+                    <!-- CONTENEDOR DE REVISIÓN (MOVIDO FUERA PARA COMPARTIR) -->
+                    <div id="generated-results" class="hidden border-t pt-4 mt-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-bold text-gray-700">Revisión de Preguntas</h4>
+                            <button id="save-all-generated" class="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 text-sm">Guardar Todo</button>
+                        </div>
+                        <div id="review-list-container" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Herramienta: Manual -->
+                    <div id="tool-manual" class="hidden">
+                        <h3 class="font-bold text-lg mb-4">Crear Pregunta Manualmente</h3>
+                        <div class="bg-white p-4 border rounded-lg space-y-3">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Pregunta</label>
+                                <textarea id="manual-q" class="w-full p-2 border rounded" rows="2"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Opciones (4 mínimo)</label>
+                                <div id="manual-opts" class="space-y-2">
+                                    <div class="flex items-center gap-2"><input type="radio" name="manual-correct" value="0" checked><input type="text" class="w-full p-2 border rounded manual-opt" placeholder="Opción A"></div>
+                                    <div class="flex items-center gap-2"><input type="radio" name="manual-correct" value="1"><input type="text" class="w-full p-2 border rounded manual-opt" placeholder="Opción B"></div>
+                                    <div class="flex items-center gap-2"><input type="radio" name="manual-correct" value="2"><input type="text" class="w-full p-2 border rounded manual-opt" placeholder="Opción C"></div>
+                                    <div class="flex items-center gap-2"><input type="radio" name="manual-correct" value="3"><input type="text" class="w-full p-2 border rounded manual-opt" placeholder="Opción D"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Justificación</label>
+                                <textarea id="manual-just" class="w-full p-2 border rounded" rows="2"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Tema / Carpeta</label>
+                                <input type="text" id="manual-topic" class="w-full p-2 border rounded" placeholder="Ej: Cardiología">
+                            </div>
+                            <button id="save-manual-btn" class="w-full py-2 bg-orange-600 text-white font-bold rounded hover:bg-orange-700 mt-2">Guardar Pregunta</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Práctica -->
+                <div id="choice-practice" class="hidden h-full">
+                    <button class="back-to-menu text-sm text-gray-500 flex items-center hover:text-gray-800 mb-4">
+                        <svg data-lucide="arrow-left" class="w-4 h-4 mr-1"></svg> Volver al menú
+                    </button>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+                        <!-- Sidebar Temas con Carpetas -->
+                        <div class="md:col-span-1 border-r pr-4 overflow-y-auto max-h-[60vh]">
+                            <h4 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                <svg data-lucide="folder-open" class="w-4 h-4"></svg> Contenido
+                            </h4>
+                            <div id="topics-list" class="space-y-1 text-sm text-gray-500">Cargando...</div>
+                        </div>
+                        <!-- Zona de Juego -->
+                        <div class="md:col-span-2 flex flex-col items-center justify-center bg-gray-50 rounded-lg p-6 min-h-[400px]" id="practice-area">
+                            <p class="text-gray-400">Selecciona un tema de la izquierda.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. REPASAR (Flashcards de errores) -->
+            <div id="tab-review" class="tab-panel space-y-4">
+                <div class="flex justify-between items-center bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <div>
+                        <h2 class="font-bold text-yellow-800">Repaso Espaciado (Errores)</h2>
+                        <p class="text-xs text-yellow-700">Preguntas que fallaste en el Choice se convierten en flashcards.</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-center inline-block mr-4">
+                            <span id="review-count" class="text-2xl font-bold text-yellow-600">0</span>
+                            <span class="block text-xs">pendientes</span>
+                        </div>
+                        <button id="btn-create-flashcard-review" class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-semibold hover:bg-green-200 inline-flex items-center gap-1 align-top">
+                            <svg data-lucide="plus" class="w-4 h-4"></svg> Crear Flashcard
+                        </button>
+                    </div>
+                </div>
+                <div id="review-list" class="space-y-2"></div>
+            </div>
+
+            <!-- 4. ADMINISTRAR (RENOVADO) -->
+            <div id="tab-topics" class="tab-panel space-y-4">
+                <div class="flex justify-between items-end flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-xl font-bold">Gestión de Contenido</h2>
+                        <p class="text-sm text-gray-500">Organiza tus preguntas en carpetas y temas.</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button id="btn-create-folder" class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-semibold flex items-center gap-1 hover:bg-green-200">
+                            <svg data-lucide="folder-plus" class="w-4 h-4"></svg> Crear Carpeta
+                        </button>
+                        <button id="btn-move-questions" class="hidden px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-semibold flex items-center gap-1 hover:bg-indigo-200 shadow-sm border border-indigo-200 transition-all">
+                            <svg data-lucide="arrow-right-left" class="w-4 h-4"></svg> Mover Items
+                        </button>
+                        <button id="btn-move-folder" class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold flex items-center gap-1 disabled:opacity-50" disabled>
+                            <svg data-lucide="folder-input" class="w-4 h-4"></svg> Mover Temas
+                        </button>
+                        <button id="btn-merge-topics" class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-semibold flex items-center gap-1 disabled:opacity-50" disabled>
+                            <svg data-lucide="merge" class="w-4 h-4"></svg> Fusionar Temas
+                        </button>
+                        <button id="btn-rename-topic" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold flex items-center gap-1 disabled:opacity-50" disabled>
+                            <svg data-lucide="pencil" class="w-4 h-4"></svg> Renombrar
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="manager-container" class="mt-4 border rounded-lg bg-gray-50 min-h-[400px] p-4">
+                    <div id="manager-list" class="space-y-4">
+                        <!-- El contenido se inyecta por JS (Carpetas y Temas) -->
+                        <div class="loader"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals Edición -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold mb-4">Editar Pregunta</h3>
+            <input type="hidden" id="edit-id">
+            <!-- Un campo oculto para saber si estamos editando algo temporal, de la DB práctica o del Admin -->
+            <input type="hidden" id="edit-mode" value="db"> 
+            
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Pregunta</label>
+                <textarea id="edit-question" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="3"></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Opciones (Marcar la correcta)</label>
+                <div id="edit-options" class="space-y-2">
+                    <!-- Options injected here -->
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Justificación</label>
+                <textarea id="edit-justification" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="4"></textarea>
+            </div>
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('edit-modal').style.display='none'" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-medium">Cancelar</button>
+                <button id="save-edit-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Crear Flashcard -->
+    <div id="flashcard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="bg-green-100 p-2 rounded-full">
+                    <svg data-lucide="plus-square" class="w-6 h-6 text-green-600"></svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900">Crear Flashcard</h3>
+            </div>
+            
+            <div class="mb-3">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Pregunta (Anverso)</label>
+                <textarea id="fc-question" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-gray-800" rows="3" placeholder="Escribe la pregunta..."></textarea>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Respuesta (Reverso)</label>
+                <textarea id="fc-answer" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-gray-800" rows="5" placeholder="Escribe la respuesta y explicación..."></textarea>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Tema (Opcional)</label>
+                <input type="text" id="fc-topic" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-gray-800" placeholder="Ej: Cardiología (Flashcards)">
+            </div>
+            
+            <div class="flex justify-end gap-2 pt-2 border-t">
+                <button onclick="document.getElementById('flashcard-modal').style.display='none'" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-medium">Cancelar</button>
+                <button id="save-fc-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow transition-transform active:scale-95">Guardar Flashcard</button>
+            </div>
+        </div>
+    </div>
+    
+    <input type="file" id="hidden-pdf-input" accept=".pdf" class="hidden">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+             apiKey: "AIzaSyAVbIeEAHBfKU5eDqsELTyXkAcM-m5qUUM",
+             authDomain: "simulador-examen-oral.firebaseapp.com",
+             projectId: "simulador-examen-oral",
+             storageBucket: "simulador-examen-oral.firebasestorage.app",
+             messagingSenderId: "64722873532",
+             appId: "1:64722873532:web:2f708ee4a62366598c34b9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        let userId = null;
+        let currentSubject = null;
+        let cachedQuestions = [];
+        let currentQuiz = { questions: [], index: 0, score: 0, incorrectQuestions: [] };
+        let tempGeneratedQuestions = []; 
+        let orderedTopics = []; 
+        let currentTopicIndex = -1;
+        // Cache simple para datos del admin para editar y mover
+        let managerQuestionsCache = {};
+        let managerFoldersCache = []; // Para poblar dropdown de mover preguntas
+        let managerTreeCache = {}; // Para saber qué temas hay en cada carpeta
+        
+        // --- ESTADO EXAMEN ---
+        let examState = {
+            active: false,
+            questions: [],
+            answers: [], // { questionId, selectedIndex, isCorrect, topic }
+            currentIndex: 0,
+            timer: null,
+            timeRemaining: 0,
+            config: {}
+        };
+
+        const apiKey = ""; 
+        
+        // --- GESTIÓN DE USUARIO Y SETTINGS ---
+        function loadSettings() {
+            const storedUser = localStorage.getItem('sim_tutor_user_id');
+            const storedKey = localStorage.getItem('sim_tutor_api_key');
+            if (storedUser) {
+                userId = storedUser;
+                document.getElementById('setting-user-id').value = userId;
+            } else {
+                document.getElementById('setting-user-id').value = crypto.randomUUID().split('-')[0];
+            }
+            if (storedKey) document.getElementById('setting-api-key').value = storedKey;
+            return { userId, apiKey: storedKey };
+        }
+
+        function openSettings() {
+            loadSettings(); 
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        document.getElementById('open-settings-btn').onclick = openSettings;
+        document.getElementById('generate-id-btn').onclick = () => {
+            const newId = crypto.randomUUID().split('-')[0];
+            document.getElementById('setting-user-id').value = newId;
+        };
+
+        document.getElementById('save-settings-btn').onclick = async () => {
+            const uInput = document.getElementById('setting-user-id').value.trim();
+            const kInput = document.getElementById('setting-api-key').value.trim();
+            if (!uInput) return showToast("El ID de Usuario es obligatorio.", "error");
+            localStorage.setItem('sim_tutor_user_id', uInput);
+            if (kInput) localStorage.setItem('sim_tutor_api_key', kInput);
+            else localStorage.removeItem('sim_tutor_api_key');
+            userId = uInput;
+            document.getElementById('settings-modal').style.display = 'none';
+            showToast("Configuración guardada correctamente.", "success");
+            updateUserDisplay();
+            await loadSubjects();
+        };
+        
+        function updateUserDisplay() {
+            const statusDot = document.getElementById('static-dot');
+            const pingDot = document.getElementById('ping-dot');
+            const userText = document.getElementById('user-display');
+            if (userId) {
+                statusDot.classList.replace('bg-red-500', 'bg-green-500');
+                pingDot.classList.replace('bg-red-400', 'bg-green-400');
+                userText.textContent = `ID: ${userId}`;
+                userText.classList.replace('text-gray-500', 'text-green-700');
+            } else {
+                userText.textContent = "Desconectado";
+            }
+        }
+
+        // --- INTERFAZ & NAVEGACIÓN ---
+        function switchTab(id) {
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(id + '-btn').classList.add('active');
+            document.getElementById(id).classList.add('active');
+            
+            if (id === 'tab-choice') resetChoiceView();
+            if (id === 'tab-review') loadReview();
+            if (id === 'tab-topics') loadManager();
+        }
+
+        window.resetChoiceView = function() {
+            document.getElementById('choice-menu').style.display = 'grid';
+            document.getElementById('choice-tools').style.display = 'none';
+            document.getElementById('choice-practice').style.display = 'none';
+            document.getElementById('exam-interface').classList.add('hidden'); // Ensure exam closes
+        }
+
+        document.getElementById('tab-material-btn').onclick = () => switchTab('tab-material');
+        document.getElementById('tab-choice-btn').onclick = () => switchTab('tab-choice');
+        document.getElementById('tab-review-btn').onclick = () => switchTab('tab-review');
+        document.getElementById('tab-topics-btn').onclick = () => switchTab('tab-topics');
+
+        document.getElementById('btn-analyze-choice').onclick = () => { 
+            document.getElementById('choice-menu').style.display = 'none'; 
+            document.getElementById('choice-tools').style.display = 'block'; 
+            document.getElementById('tool-analyze').classList.remove('hidden');
+            document.getElementById('tool-generate').classList.add('hidden');
+            document.getElementById('tool-manual').classList.add('hidden');
+        };
+        document.getElementById('btn-generate-choice').onclick = () => { 
+            document.getElementById('choice-menu').style.display = 'none'; 
+            document.getElementById('choice-tools').style.display = 'block'; 
+            document.getElementById('tool-analyze').classList.add('hidden');
+            document.getElementById('tool-generate').classList.remove('hidden');
+            document.getElementById('tool-manual').classList.add('hidden');
+            document.getElementById('generated-results').classList.add('hidden');
+        };
+        document.getElementById('btn-add-manual').onclick = () => {
+            document.getElementById('choice-menu').style.display = 'none'; 
+            document.getElementById('choice-tools').style.display = 'block'; 
+            document.getElementById('tool-analyze').classList.add('hidden');
+            document.getElementById('tool-generate').classList.add('hidden');
+            document.getElementById('tool-manual').classList.remove('hidden');
+        };
+        document.getElementById('btn-practice-choice').onclick = async () => { 
+            document.getElementById('choice-menu').style.display = 'none'; 
+            document.getElementById('choice-practice').style.display = 'block';
+            await loadTopicsList();
+        };
+        document.querySelectorAll('.back-to-menu').forEach(b => b.onclick = resetChoiceView);
+
+        // --- LÓGICA MODO EXAMEN ---
+        
+        document.getElementById('btn-exam-mode').onclick = async () => {
+            try {
+                if (!currentSubject) return showToast("Selecciona una materia primero.", "error");
+                
+                // Cargar datos para el config modal
+                const container = document.getElementById('exam-topics-container');
+                container.innerHTML = '<div class="loader"></div>';
+                document.getElementById('exam-config-modal').style.display = 'flex';
+                
+                // Traer todas las preguntas
+                const snap = await getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'));
+                const questions = snap.docs.map(d => d.data());
+                
+                // Agrupar temas únicos (combinando Carpeta > Tema)
+                const uniqueTopics = new Set();
+                questions.forEach(q => {
+                    const c = q.container || 'Sin Carpeta';
+                    const t = q.topic || 'General';
+                    uniqueTopics.add(`${c} > ${t}`);
+                });
+                
+                container.innerHTML = '';
+                if (uniqueTopics.size === 0) {
+                    container.innerHTML = '<p class="text-sm text-gray-500">No hay preguntas disponibles.</p>';
+                    return;
+                }
+                
+                // Ordenar alfabéticamente
+                const sortedTopics = Array.from(uniqueTopics).sort();
+                
+                sortedTopics.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-2';
+                    div.innerHTML = `
+                        <input type="checkbox" class="exam-topic-check w-4 h-4 text-red-600 rounded" value="${t}" checked>
+                        <span class="text-gray-700">${t}</span>
+                    `;
+                    container.appendChild(div);
+                });
+            } catch(e) {
+                console.error("Error abriendo examen:", e);
+                showToast("Error al cargar temas", "error");
+            }
+        };
+
+        // Select All Logic
+        document.getElementById('exam-select-all').onchange = (e) => {
+            document.querySelectorAll('.exam-topic-check').forEach(ck => ck.checked = e.target.checked);
+        };
+
+        document.getElementById('start-exam-btn').onclick = async () => {
+            try {
+                const checkboxes = document.querySelectorAll('.exam-topic-check:checked');
+                if (checkboxes.length === 0) return alert("Selecciona al menos un tema.");
+                
+                const selectedTopics = Array.from(checkboxes).map(c => c.value);
+                const qty = parseInt(document.getElementById('exam-qty').value);
+                const timeMinutes = parseInt(document.getElementById('exam-time').value);
+                const feedbackMode = document.querySelector('input[name="exam-feedback"]:checked').value; 
+                
+                // Fetch again to ensure freshness
+                const snap = await getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'));
+                let allQuestions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                
+                // Filter by topic
+                let filteredQuestions = allQuestions.filter(q => {
+                    const key = `${q.container || 'Sin Carpeta'} > ${q.topic || 'General'}`;
+                    return selectedTopics.includes(key);
+                });
+                
+                if (filteredQuestions.length === 0) return alert("No hay preguntas en los temas seleccionados.");
+                
+                // Shuffle Questions
+                filteredQuestions.sort(() => Math.random() - 0.5);
+                
+                // Limit quantity
+                const finalQuestions = filteredQuestions.slice(0, qty);
+                
+                // Preparar preguntas: Mezclar opciones (CON SAFETY CHECK)
+                const processedQuestions = finalQuestions.map(q => {
+                    if (!q.options || !Array.isArray(q.options)) {
+                        // Fallback for malformed data
+                        return { ...q, options: ["Error de datos", "Error", "Error", "Error"], correctIndex: 0 };
+                    }
+
+                    const indices = q.options.map((_, i) => i);
+                    indices.sort(() => Math.random() - 0.5);
+                    
+                    const newOptions = indices.map(i => q.options[i]);
+                    const oldCorrect = q.correctIndex;
+                    // Find new position of correct answer. If not found (weird data), default to -1
+                    const newCorrect = indices.indexOf(oldCorrect);
+                    
+                    return {
+                        ...q,
+                        options: newOptions,
+                        correctIndex: newCorrect
+                    };
+                });
+                
+                // INICIAR EXAMEN
+                examState = {
+                    active: true,
+                    questions: processedQuestions,
+                    answers: new Array(processedQuestions.length).fill(null),
+                    currentIndex: 0,
+                    timeRemaining: timeMinutes * 60,
+                    config: { feedbackMode }
+                };
+                
+                document.getElementById('exam-config-modal').style.display = 'none';
+                document.getElementById('exam-interface').classList.remove('hidden');
+                
+                startTimer();
+                renderExamQuestion();
+            } catch(e) {
+                console.error("Start Exam Error:", e);
+                alert("Error iniciando examen: " + e.message);
+            }
+        };
+
+        function startTimer() {
+            if (examState.timer) clearInterval(examState.timer);
+            updateTimerDisplay();
+            
+            examState.timer = setInterval(() => {
+                examState.timeRemaining--;
+                updateTimerDisplay();
+                
+                if (examState.timeRemaining <= 0) {
+                    finishExam(true); // True = forced by time
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(examState.timeRemaining / 60);
+            const s = examState.timeRemaining % 60;
+            const display = document.getElementById('exam-timer-display');
+            if(display) {
+                display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                if (examState.timeRemaining < 60) {
+                    display.classList.add('bg-red-500', 'text-white', 'animate-pulse');
+                    display.classList.remove('bg-white', 'text-red-400');
+                } else {
+                    display.classList.remove('bg-red-500', 'text-white', 'animate-pulse');
+                    display.classList.add('bg-white', 'text-red-400');
+                }
+            }
+        }
+
+        // GLOBAL EXPOSURE FOR HTML HANDLERS
+        window.cancelExam = () => {
+            if(confirm("¿Estás seguro de cancelar el examen? Se perderá el progreso.")) {
+                clearInterval(examState.timer);
+                document.getElementById('exam-interface').classList.add('hidden');
+                resetChoiceView();
+            }
+        };
+
+        window.selectExamOption = (idx) => {
+            if (!examState.active) return;
+            if (examState.answers[examState.currentIndex] !== null) return; // Ya respondido
+            
+            const q = examState.questions[examState.currentIndex];
+            const isCorrect = idx === q.correctIndex;
+            
+            examState.answers[examState.currentIndex] = {
+                questionId: q.id,
+                selectedIndex: idx,
+                isCorrect: isCorrect,
+                questionRef: q
+            };
+            
+            renderExamQuestion(); 
+        };
+
+        window.closeExamResults = () => {
+            document.getElementById('exam-results').classList.add('hidden');
+            examState.active = false;
+            resetChoiceView();
+        };
+
+        function renderExamQuestion() {
+            const q = examState.questions[examState.currentIndex];
+            const area = document.getElementById('exam-question-area');
+            const progress = document.getElementById('exam-progress-text');
+            const nextBtn = document.getElementById('exam-next-btn');
+            
+            progress.textContent = `${examState.currentIndex + 1}/${examState.questions.length}`;
+            
+            const existingAns = examState.answers[examState.currentIndex];
+            const isAnswered = existingAns !== null;
+            
+            let html = `
+                <div class="mb-6">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">${q.container || ''} > ${q.topic || ''}</span>
+                    <h3 class="text-xl font-bold text-gray-900 mt-2">${q.question}</h3>
+                </div>
+                <div class="space-y-3">
+            `;
+            
+            q.options.forEach((opt, idx) => {
+                let classes = "exam-option p-4 border rounded-lg cursor-pointer transition hover:bg-gray-50 flex items-center";
+                let icon = `<div class="w-6 h-6 border-2 border-gray-300 rounded-full mr-3 flex items-center justify-center text-xs font-bold text-gray-400">${String.fromCharCode(65+idx)}</div>`;
+                
+                if (isAnswered) {
+                    if (idx === existingAns.selectedIndex) {
+                        classes += " bg-blue-100 border-blue-500 ring-1 ring-blue-500";
+                        icon = `<div class="w-6 h-6 bg-blue-600 rounded-full mr-3 flex items-center justify-center text-white"><svg data-lucide="check" class="w-4 h-4"></svg></div>`;
+                    } else {
+                        classes += " opacity-60 cursor-not-allowed";
+                    }
+                    
+                    if (examState.config.feedbackMode === 'immediate') {
+                        if (idx === q.correctIndex) {
+                            classes += " bg-green-50 border-green-500";
+                            if(idx === existingAns.selectedIndex) icon = `<div class="w-6 h-6 bg-green-600 rounded-full mr-3 flex items-center justify-center text-white"><svg data-lucide="check" class="w-4 h-4"></svg></div>`;
+                        } else if (idx === existingAns.selectedIndex && !existingAns.isCorrect) {
+                            classes = "exam-option p-4 border rounded-lg flex items-center bg-red-50 border-red-500";
+                            icon = `<div class="w-6 h-6 bg-red-600 rounded-full mr-3 flex items-center justify-center text-white"><svg data-lucide="x" class="w-4 h-4"></svg></div>`;
+                        }
+                    }
+                }
+                
+                html += `<div class="${classes}" onclick="selectExamOption(${idx})">${icon} <span class="font-medium text-gray-700">${opt}</span></div>`;
+            });
+            
+            html += `</div>`;
+            
+            if (isAnswered && examState.config.feedbackMode === 'immediate') {
+                const isCorrect = existingAns.isCorrect;
+                html += `
+                    <div class="mt-6 p-4 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+                        <p class="font-bold mb-1 ${isCorrect ? 'text-green-700' : 'text-red-700'}">${isCorrect ? '¡Correcto!' : 'Incorrecto'}</p>
+                        <p class="text-sm text-gray-600">${q.justification || ''}</p>
+                    </div>
+                `;
+            }
+
+            area.innerHTML = html;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            
+            if (isAnswered) {
+                nextBtn.disabled = false;
+                nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                if (examState.currentIndex === examState.questions.length - 1) {
+                    nextBtn.innerHTML = `Finalizar Examen <svg data-lucide="flag" class="w-5 h-5"></svg>`;
+                    nextBtn.classList.replace('bg-blue-600', 'bg-black');
+                    nextBtn.classList.replace('hover:bg-blue-700', 'hover:bg-gray-800');
+                    nextBtn.onclick = () => finishExam(false);
+                } else {
+                    nextBtn.innerHTML = `Siguiente <svg data-lucide="arrow-right" class="w-5 h-5"></svg>`;
+                    nextBtn.onclick = () => {
+                        examState.currentIndex++;
+                        renderExamQuestion();
+                    };
+                }
+            } else {
+                nextBtn.disabled = true;
+                nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                nextBtn.innerHTML = `Siguiente <svg data-lucide="arrow-right" class="w-5 h-5"></svg>`;
+            }
+        }
+
+        function finishExam(forced) {
+            clearInterval(examState.timer);
+            document.getElementById('exam-interface').classList.add('hidden');
+            
+            if (forced) alert("¡Se acabó el tiempo! El examen se entregará tal cual está.");
+            
+            let correctCount = 0;
+            let incorrectList = [];
+            const answers = examState.answers;
+            const total = examState.questions.length;
+            const topicAnalysis = {};
+            
+            answers.forEach((ans, i) => {
+                const q = examState.questions[i];
+                if (!ans) {
+                    incorrectList.push({ ...q, userSelected: null });
+                    trackTopicError(topicAnalysis, q.topic);
+                } else if (ans.isCorrect) {
+                    correctCount++;
+                } else {
+                    incorrectList.push({ ...q, userSelected: ans.selectedIndex });
+                    trackTopicError(topicAnalysis, q.topic);
+                }
+            });
+            
+            const percentage = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+            
+            document.getElementById('result-score-percent').textContent = `${percentage}%`;
+            document.getElementById('result-score-percent').className = percentage >= 60 ? 'text-5xl font-extrabold text-green-600' : 'text-5xl font-extrabold text-red-600';
+            document.getElementById('result-score-fraction').textContent = `${correctCount}/${total} Aciertos`;
+            
+            const topicContainer = document.getElementById('result-topics-list');
+            topicContainer.innerHTML = '';
+            if (Object.keys(topicAnalysis).length === 0 && incorrectList.length === 0) {
+                topicContainer.innerHTML = '<p class="text-sm text-green-600">¡Perfecto en todos los temas!</p>';
+            } else {
+                for (const [topic, count] of Object.entries(topicAnalysis)) {
+                    topicContainer.innerHTML += `
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-gray-700">${topic}</span>
+                                <span class="text-red-500 font-bold">${count} errores</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-red-500 h-2 rounded-full" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            const errorList = document.getElementById('result-errors-list');
+            const noErrorsDiv = document.getElementById('result-no-errors');
+            errorList.innerHTML = '';
+            
+            if (incorrectList.length === 0) {
+                noErrorsDiv.classList.remove('hidden');
+            } else {
+                noErrorsDiv.classList.add('hidden');
+                incorrectList.forEach(err => {
+                    const correctText = err.options[err.correctIndex];
+                    const userText = err.userSelected !== null ? err.options[err.userSelected] : "Sin responder";
+                    
+                    errorList.innerHTML += `
+                        <div class="bg-red-50 border border-red-100 p-4 rounded-lg">
+                            <p class="text-xs font-bold text-red-400 mb-2 uppercase">${err.topic}</p>
+                            <p class="font-bold text-gray-800 mb-2">${err.question}</p>
+                            <div class="text-sm space-y-1 mb-3">
+                                <p class="text-red-700"><span class="font-bold">Tu respuesta:</span> ${userText}</p>
+                                <p class="text-green-700"><span class="font-bold">Correcta:</span> ${correctText}</p>
+                            </div>
+                            <p class="text-xs text-gray-600 italic bg-white p-2 rounded border border-red-100">${err.justification || 'Sin justificación'}</p>
+                        </div>
+                    `;
+                });
+            }
+            
+            document.getElementById('exam-results').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function trackTopicError(map, topic) {
+            const t = topic || "General";
+            if (!map[t]) map[t] = 0;
+            map[t]++;
+        }
+
+        // --- LOGICA DE SELECCION DE FUENTE ---
+        document.querySelectorAll('input[name="gen-source"]').forEach(radio => {
+            radio.onchange = (e) => {
+                const val = e.target.value;
+                const customDiv = document.getElementById('custom-source-container');
+                if (val === 'custom') {
+                    customDiv.classList.remove('hidden');
+                } else {
+                    customDiv.classList.add('hidden');
+                }
+            };
+        });
+
+        // --- MATERIAS & CARGA ---
+        async function init() {
+            try {
+                await signInAnonymously(auth);
+                const settings = loadSettings();
+                if (!localStorage.getItem('sim_tutor_user_id')) {
+                    document.getElementById('settings-modal').style.display = 'flex';
+                } else {
+                    userId = settings.userId;
+                    updateUserDisplay();
+                    await loadSubjects();
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch (e) { console.error("Auth failed", e); }
+        }
+        
+        document.getElementById('btn-add-subject').onclick = () => {
+             document.getElementById('new-subject-input').value = '';
+             document.getElementById('new-subject-modal').style.display = 'flex';
+             document.getElementById('new-subject-input').focus();
+        };
+
+        document.getElementById('confirm-new-subject').onclick = async () => {
+            const name = document.getElementById('new-subject-input').value.trim();
+            if(!name) return;
+            if(!userId) return showToast("Debes configurar un usuario primero.", "error");
+            document.getElementById('new-subject-modal').style.display = 'none';
+            try {
+                await setDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', name), { created: serverTimestamp() });
+                await loadSubjects();
+                document.getElementById('subject-selector').value = name;
+                currentSubject = name;
+                showToast(`Materia "${name}" creada.`, "success");
+            } catch (e) {
+                console.error(e);
+                showToast("Error al crear materia.", "error");
+            }
+        };
+        
+        async function loadSubjects() {
+            if (!userId) return;
+            const sel = document.getElementById('subject-selector');
+            sel.innerHTML = '<option value="">-- Materia --</option>';
+            try {
+                const snap = await getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects'));
+                snap.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.id; opt.textContent = d.id;
+                    sel.appendChild(opt);
+                });
+            } catch (e) { console.error(e); }
+            sel.onchange = async () => {
+                currentSubject = sel.value;
+                if (currentSubject) await loadMaterial();
+            };
+        }
+
+        async function loadMaterial() {
+            if (!currentSubject || !userId) return;
+            const fields = ['syllabus', 'experiences', 'theory'];
+            for (const f of fields) {
+                try {
+                    const d = await getDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'materials', f));
+                    document.getElementById(f).value = d.exists() ? d.data().content : '';
+                } catch (e) {}
+            }
+        }
+        
+        document.getElementById('save-material').onclick = async () => {
+            if (!currentSubject) return showToast("Selecciona una materia primero.", "error");
+            const btn = document.getElementById('save-material');
+            btn.textContent = "Guardando..."; btn.disabled = true;
+            const batch = writeBatch(db);
+            ['syllabus', 'experiences', 'theory'].forEach(f => {
+                const val = document.getElementById(f).value;
+                const ref = doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'materials', f);
+                batch.set(ref, { content: val });
+            });
+            await batch.commit();
+            showToast("Material guardado correctamente.", "success");
+            btn.textContent = "Guardar Material"; btn.disabled = false;
+        };
+
+        // --- LÓGICA CHOICE MANUAL ---
+        
+        document.getElementById('save-manual-btn').onclick = async () => {
+            if (!currentSubject) return showToast("Selecciona una materia.", "error");
+            
+            const q = document.getElementById('manual-q').value.trim();
+            const opts = Array.from(document.querySelectorAll('.manual-opt')).map(i => i.value.trim()).filter(v => v);
+            const correctIdx = parseInt(document.querySelector('input[name="manual-correct"]:checked').value);
+            const just = document.getElementById('manual-just').value.trim();
+            const topic = document.getElementById('manual-topic').value.trim() || "General";
+            
+            if (!q || opts.length < 2) return alert("Pregunta y al menos 2 opciones requeridas.");
+            
+            const newQ = {
+                question: q,
+                options: opts,
+                correctIndex: correctIdx,
+                justification: just,
+                topic: topic,
+                container: 'Sin Carpeta',
+                createdAt: serverTimestamp(),
+                status: 'new'
+            };
+            
+            try {
+                await setDoc(doc(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq')), newQ);
+                showToast("Pregunta guardada.", "success");
+                // Reset inputs
+                document.getElementById('manual-q').value = '';
+                document.querySelectorAll('.manual-opt').forEach(i => i.value = '');
+                document.getElementById('manual-just').value = '';
+            } catch(e) {
+                showToast("Error al guardar.", "error");
+                console.error(e);
+            }
+        };
+
+        // --- LÓGICA CHOICE GENERADO (CON REVISIÓN) ---
+        
+        // Handler para ANALIZAR (Exámenes/PDF)
+        document.getElementById('run-analyze').onclick = async () => {
+            if (!currentSubject) return showToast("Selecciona una materia primero.", "error");
+            const text = document.getElementById('raw-choice-text').value;
+            if(!text.trim()) return showToast("Pega texto o sube un PDF.", "error");
+            
+            // Límite aumentado a 500,000 caracteres (aprox 200 páginas) para aprovechar la ventana de contexto de Gemini Flash
+            const CHAR_LIMIT = 500000;
+            let truncatedText = text;
+            
+            if (text.length > CHAR_LIMIT) {
+                truncatedText = text.substring(0, CHAR_LIMIT);
+                showToast(`El texto es muy largo (${text.length} caracteres). Se analizarán los primeros ${CHAR_LIMIT}.`, "warning");
+            }
+            
+            showProgress("Analizando...", "Detectando preguntas en el texto...", 30);
+            
+            try {
+                const prompt = `Analiza el siguiente texto (puede ser un examen desordenado o un PDF pegado) y extrae TODAS las preguntas multiple choice que encuentres.
+                
+                Reglas:
+                1. Identifica la pregunta y sus opciones.
+                2. Si el texto indica la respuesta correcta (ej: marcada, en negrita, o al final), úsala. Si no, INTENTA RESPONDERLA tú mismo correctamente.
+                3. Genera una justificación breve.
+                4. Agrupa por tema si es posible, o usa "Examen" como tema.
+                
+                TEXTO A PROCESAR:
+                ${truncatedText}
+                
+                Responde EXCLUSIVAMENTE un JSON Array válido: [{ "question": "...", "options": ["..."], "correctIndex": 0, "topic": "...", "justification": "..." }]`;
+                
+                const json = await callGemini(prompt, true);
+                
+                if (!Array.isArray(json) || json.length === 0) throw new Error("No se encontraron preguntas válidas.");
+
+                // Cargar en revisión
+                tempGeneratedQuestions = json.map((q, i) => ({ ...q, tempId: i }));
+                
+                hideProgress();
+                
+                // Mostrar zona de revisión
+                document.getElementById('tool-analyze').classList.add('hidden');
+                document.getElementById('generated-results').classList.remove('hidden');
+                
+                renderGeneratedReview();
+                showToast(`Se detectaron ${json.length} preguntas.`, "success");
+                
+            } catch (e) {
+                hideProgress();
+                console.error(e);
+                showToast("Error al analizar: " + e.message, "error");
+            }
+        };
+
+        document.getElementById('run-generate').onclick = async () => {
+             if (!currentSubject) return showToast("Selecciona una materia.", "error");
+             const qty = document.getElementById('gen-qty').value;
+             
+             // Determinar fuente
+             const sourceType = document.querySelector('input[name="gen-source"]:checked').value;
+             let context = "";
+             
+             if (sourceType === 'custom') {
+                 context = document.getElementById('custom-source-text').value;
+                 if (!context.trim()) return alert("Por favor pega el texto específico para generar preguntas.");
+                 context = "TEXTO ESPECÍFICO PROPORCIONADO POR EL USUARIO:\n" + context;
+             } else {
+                 context = document.getElementById('experiences').value + "\n" + document.getElementById('theory').value;
+                 if (context.trim().length < 50) return alert("El material general parece vacío. Sube material en la pestaña 1 o elige 'Texto Específico'.");
+                 context = "MATERIAL DE ESTUDIO GENERAL:\n" + context.substring(0, 25000); // Limit for safety
+             }
+
+             showProgress("Generando", "Creando preguntas...", 30);
+             
+             try {
+                const prompt = `Genera ${qty} preguntas multiple choice difíciles basadas EXCLUSIVAMENTE en el siguiente contexto: 
+                
+                ${context}
+                
+                Incluye justificación detallada. Responde JSON Array: [{ "question": "...", "options": ["..."], "correctIndex": 0, "topic": "...", "justification": "..." }]`;
+                
+                const json = await callGemini(prompt, true);
+                
+                // Guardar en memoria temporal para revisión
+                tempGeneratedQuestions = json.map((q, i) => ({ ...q, tempId: i }));
+                
+                hideProgress();
+                renderGeneratedReview();
+                
+             } catch (e) { hideProgress(); showToast("Error: " + e.message, "error"); }
+        };
+        
+        function renderGeneratedReview() {
+            const container = document.getElementById('generated-results');
+            const list = document.getElementById('review-list-container');
+            container.classList.remove('hidden');
+            list.innerHTML = '';
+            
+            if (tempGeneratedQuestions.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            
+            tempGeneratedQuestions.forEach((q, index) => {
+                const div = document.createElement('div');
+                div.className = 'p-4 border rounded bg-gray-50';
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-bold text-blue-600 uppercase">${q.topic}</span>
+                        <div class="flex gap-2">
+                            <button onclick="editTempQuestion(${index})" class="text-gray-500 hover:text-blue-600"><svg data-lucide="pencil" class="w-4 h-4"></svg></button>
+                            <button onclick="deleteTempQuestion(${index})" class="text-gray-500 hover:text-red-600"><svg data-lucide="trash-2" class="w-4 h-4"></svg></button>
+                        </div>
+                    </div>
+                    <p class="font-bold text-sm mb-2">${q.question}</p>
+                    <ul class="space-y-1 text-xs text-gray-600 mb-2">
+                        ${q.options.map((o, i) => `<li class="${i === q.correctIndex ? 'text-green-600 font-bold' : ''}">${String.fromCharCode(65+i)}. ${o}</li>`).join('')}
+                    </ul>
+                    <p class="text-xs text-gray-500 italic bg-white p-2 rounded border">${q.justification}</p>
+                `;
+                list.appendChild(div);
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        
+        window.deleteTempQuestion = (index) => {
+            tempGeneratedQuestions.splice(index, 1);
+            renderGeneratedReview();
+        };
+        
+        window.editTempQuestion = (index) => {
+            // Usar modal existente pero cambiar el modo
+            const q = tempGeneratedQuestions[index];
+            document.getElementById('edit-mode').value = 'temp'; // IMPORTANTE
+            document.getElementById('edit-id').value = index; // Usamos índice array en vez de ID
+            
+            document.getElementById('edit-question').value = q.question;
+            document.getElementById('edit-justification').value = q.justification || "";
+            
+            const optionsContainer = document.getElementById('edit-options');
+            optionsContainer.innerHTML = '';
+            
+            q.options.forEach((opt, idx) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2';
+                div.innerHTML = `
+                    <input type="radio" name="correct-option" value="${idx}" ${idx === q.correctIndex ? 'checked' : ''}>
+                    <input type="text" class="w-full p-2 border rounded edit-opt-input" value="${opt}">
+                `;
+                optionsContainer.appendChild(div);
+            });
+            
+            document.getElementById('edit-modal').style.display = 'flex';
+        };
+        
+        document.getElementById('save-all-generated').onclick = async () => {
+            if (tempGeneratedQuestions.length === 0) return;
+            
+            showProgress("Guardando...", "Almacenando en base de datos...", 50);
+            const batch = writeBatch(db);
+            
+            tempGeneratedQuestions.forEach(q => {
+                // Limpiar campos temporales
+                const { tempId, ...cleanQ } = q;
+                const ref = doc(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'));
+                batch.set(ref, { ...cleanQ, createdAt: serverTimestamp(), status: 'new', container: 'Sin Carpeta' });
+            });
+            
+            await batch.commit();
+            tempGeneratedQuestions = [];
+            renderGeneratedReview();
+            hideProgress();
+            showToast("¡Preguntas guardadas con éxito!", "success");
+            resetChoiceView();
+        };
+
+        // --- NUEVA LÓGICA DE PRÁCTICA (JERÁRQUICA) ---
+        async function loadTopicsList() {
+            const list = document.getElementById('topics-list');
+            list.innerHTML = '<div class="loader"></div>';
+            
+            if (!currentSubject || !userId) {
+                 list.innerHTML = '<p class="text-sm text-gray-400 p-4">Por favor selecciona una materia arriba.</p>';
+                 return; 
+            }
+
+            // 1. Cargar Preguntas
+            const snap = await getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'));
+            cachedQuestions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            
+            // 2. Cargar Carpetas (para incluir vacías si queremos, aunque para práctica suelen ocultarse)
+            const foldersSnap = await getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'folders'));
+            const folders = new Set();
+            foldersSnap.forEach(d => folders.add(d.id)); // ID es el nombre de la carpeta
+
+            // Agrupar: Contenedor -> Tema -> Stats
+            const tree = {};
+            cachedQuestions.forEach(q => {
+                const cont = q.container || 'Sin Carpeta';
+                const topic = q.topic || 'General';
+                
+                if (!tree[cont]) tree[cont] = {};
+                if (!tree[cont][topic]) tree[cont][topic] = { total: 0, done: 0 };
+                
+                tree[cont][topic].total++;
+                if (q.status === 'mastered') tree[cont][topic].done++;
+            });
+            
+            folders.forEach(f => {
+                if (!tree[f]) tree[f] = {}; 
+            });
+
+            list.innerHTML = '';
+            orderedTopics = []; // Reset global order
+            
+            // Orden: "Sin Carpeta" primero, luego alfabético
+            const containers = Object.keys(tree).sort((a, b) => {
+                if (a === 'Sin Carpeta') return -1;
+                if (b === 'Sin Carpeta') return 1;
+                return a.localeCompare(b);
+            });
+            
+            if(containers.length === 0) { list.innerHTML = '<p class="text-sm text-gray-400">No hay preguntas.</p>'; return; }
+
+            containers.forEach(contName => {
+                const hasTopics = Object.keys(tree[contName]).length > 0;
+                
+                const folderBtn = document.createElement('button');
+                folderBtn.className = 'sidebar-folder-btn';
+                folderBtn.innerHTML = `<span><i data-lucide="folder" class="inline w-3 h-3 mr-1 text-blue-500"></i>${contName}</span> <i data-lucide="chevron-down" class="w-4 h-4 transform transition-transform"></i>`;
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'sidebar-folder-content';
+                
+                if (!hasTopics) {
+                    contentDiv.innerHTML = '<p class="text-xs text-gray-400 p-2 italic">Carpeta vacía</p>';
+                } else {
+                    const topics = tree[contName];
+                    // Orden alfabético de temas
+                    Object.keys(topics).sort().forEach(tName => {
+                        const tData = topics[tName];
+                        const percentage = tData.total > 0 ? (tData.done / tData.total) * 100 : 0;
+                        
+                        // Guardar en array ordenado global para lógica de "Siguiente"
+                        orderedTopics.push({ topic: tName, container: contName });
+                        
+                        const tBtn = document.createElement('button');
+                        tBtn.className = 'sidebar-topic-btn';
+                        tBtn.dataset.topicRef = `${contName}-${tName}`; // Helper ID
+                        
+                        // Nuevo diseño con barra de progreso
+                        tBtn.innerHTML = `
+                            <div class="flex justify-between items-center w-full mb-1">
+                                <span>${tName}</span>
+                                <span class="text-xs bg-gray-100 px-1.5 rounded text-gray-600 border">${tData.done}/${tData.total}</span>
+                            </div>
+                            <div class="topic-progress-bar-bg">
+                                <div class="topic-progress-bar-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        `;
+                        tBtn.onclick = () => startQuiz(tName, contName);
+                        contentDiv.appendChild(tBtn);
+                    });
+                }
+
+                folderBtn.onclick = () => {
+                    contentDiv.classList.toggle('open');
+                    const icon = folderBtn.querySelector('[data-lucide="chevron-down"]');
+                    if(contentDiv.classList.contains('open')) icon.style.transform = 'rotate(180deg)';
+                    else icon.style.transform = 'rotate(0deg)';
+                };
+                
+                // Auto-open first folder
+                if (list.children.length === 2) { 
+                    contentDiv.classList.add('open');
+                    folderBtn.querySelector('[data-lucide="chevron-down"]').style.transform = 'rotate(180deg)';
+                }
+
+                list.appendChild(folderBtn);
+                list.appendChild(contentDiv);
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function startQuiz(topic, container) {
+            // Find current index
+            currentTopicIndex = orderedTopics.findIndex(ot => ot.topic === topic && ot.container === container);
+            
+            // Highlight active in sidebar
+            document.querySelectorAll('.sidebar-topic-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.querySelector(`[data-topic-ref="${container}-${topic}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // 1. Filtrar preguntas de este tema (TODAS, mastered y no mastered)
+            let questions = cachedQuestions.filter(q => {
+                const qCont = q.container || 'Sin Carpeta';
+                const qTop = q.topic || 'General';
+                return qTop === topic && qCont === container;
+            });
+            
+            // 2. Ordenar: Primero las NO sabidas, luego las sabidas. Dentro de cada grupo, aleatorio.
+            questions.sort((a, b) => {
+                const aMastered = a.status === 'mastered';
+                const bMastered = b.status === 'mastered';
+                
+                // Si ambos tienen el mismo estado (ambos mastered o ambos no), mezclar al azar
+                if (aMastered === bMastered) return Math.random() - 0.5;
+                
+                // Si son diferentes, poner 'false' (no mastered) antes que 'true' (mastered)
+                return aMastered ? 1 : -1;
+            });
+            
+            currentQuiz.questions = questions;
+            currentQuiz.index = 0;
+            currentQuiz.score = 0;
+            currentQuiz.incorrectQuestions = []; // Reset incorrect list
+            
+            if (currentQuiz.questions.length === 0) {
+                document.getElementById('practice-area').innerHTML = '<p class="text-gray-400">No hay preguntas en este tema.</p>';
+            } else {
+                renderQuestion();
+            }
+        }
+
+        function renderQuestion() {
+            const area = document.getElementById('practice-area');
+            
+            // FINAL DEL QUIZ
+            if (currentQuiz.index >= currentQuiz.questions.length) {
+                let buttonsHtml = `<button class="px-4 py-2 bg-gray-500 text-white font-bold rounded hover:bg-gray-600" onclick="resetChoiceView()">Volver al Menú</button>`;
+
+                // Botón Reintentar Errores
+                if (currentQuiz.incorrectQuestions.length > 0) {
+                    buttonsHtml += `<button class="px-4 py-2 bg-yellow-500 text-white font-bold rounded hover:bg-yellow-600 shadow" onclick="retryIncorrect()">Reintentar Errores (${currentQuiz.incorrectQuestions.length})</button>`;
+                }
+
+                // Botón Siguiente Tema
+                if (currentTopicIndex > -1 && currentTopicIndex < orderedTopics.length - 1) {
+                    buttonsHtml += `<button class="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 shadow flex items-center gap-2" onclick="goToNextTopic()">Siguiente Tema <svg data-lucide="arrow-right" class="w-4 h-4"></svg></button>`;
+                }
+
+                area.innerHTML = `
+                    <div class="text-center bg-white p-8 rounded-xl shadow-lg border border-blue-100">
+                        <div class="inline-block p-4 bg-green-100 rounded-full mb-4">
+                            <svg data-lucide="trophy" class="w-10 h-10 text-green-600"></svg>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-2 text-gray-800">¡Fin del tema!</h3>
+                        <p class="text-lg mb-6 text-gray-600">Aciertos: <span class="font-bold text-blue-600">${currentQuiz.score}</span> / ${currentQuiz.questions.length}</p>
+                        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                            ${buttonsHtml}
+                        </div>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+            
+            // PREGUNTA NORMAL
+            const q = currentQuiz.questions[currentQuiz.index];
+            const isMastered = q.status === 'mastered';
+            
+            // Badge para indicar si ya se sabía
+            const statusBadge = isMastered 
+                ? '<span class="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full border border-green-200">✅ Aprendida</span>' 
+                : '';
+
+            area.innerHTML = `
+                <div class="w-full max-w-2xl bg-white p-6 rounded-lg shadow border text-left">
+                    <div class="flex justify-between text-xs text-gray-400 mb-4">
+                        <span>${q.container || 'Sin Carpeta'} > ${q.topic || 'General'}</span>
+                        <span class="flex items-center">${currentQuiz.index + 1}/${currentQuiz.questions.length} ${statusBadge}</span>
+                    </div>
+                    <h3 class="text-lg font-bold mb-6 text-gray-800">${q.question}</h3>
+                    <div class="space-y-2">
+                        ${q.options.map((opt, i) => `
+                            <div class="mcq-option group" onclick="checkAnswer(this, ${i})">
+                                <span class="font-bold mr-3 text-gray-400 group-hover:text-blue-500">${String.fromCharCode(65+i)}.</span> ${opt}
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-4 mt-6 text-sm font-semibold text-gray-600 border-t pt-4">
+                        <button onclick="openEditChoiceModal()" class="hover:text-blue-600 transition flex items-center gap-1">
+                            <svg data-lucide="pencil" class="w-4 h-4"></svg> Editar
+                        </button>
+                        <button onclick="openCreateFlashcardModal()" class="hover:text-green-600 transition flex items-center gap-1 text-blue-600">
+                            <svg data-lucide="plus-square" class="w-4 h-4"></svg> Crear Flashcard
+                        </button>
+                        <button onclick="getHint()" class="hover:text-yellow-600 transition flex items-center gap-1 text-yellow-600">
+                            <svg data-lucide="lightbulb" class="w-4 h-4"></svg> Pedir Pista
+                        </button>
+                        <button id="next-btn" class="ml-auto px-6 py-2 bg-gray-200 text-gray-400 rounded cursor-not-allowed font-bold transition" disabled onclick="nextQuestion()">
+                            Siguiente
+                        </button>
+                    </div>
+
+                    <div id="feedback-area" class="mt-4 hidden p-4 bg-gray-50 rounded text-sm transition-all">
+                        <p class="font-bold mb-1" id="feedback-title"></p>
+                        <p id="feedback-text">${q.justification || 'Sin justificación.'}</p>
+                    </div>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // --- FUNCIONES NUEVAS PARA NAVEGACIÓN DE CHOICE ---
+        window.retryIncorrect = () => {
+            if (currentQuiz.incorrectQuestions.length === 0) return;
+            
+            // Copiar los errores para ser las nuevas preguntas
+            currentQuiz.questions = [...currentQuiz.incorrectQuestions];
+            currentQuiz.incorrectQuestions = []; // Reset para esta nueva ronda
+            currentQuiz.index = 0;
+            currentQuiz.score = 0;
+            
+            // Mezclar un poco
+            currentQuiz.questions.sort(() => Math.random() - 0.5);
+            renderQuestion();
+        };
+
+        window.goToNextTopic = () => {
+            if (currentTopicIndex >= 0 && currentTopicIndex < orderedTopics.length - 1) {
+                const next = orderedTopics[currentTopicIndex + 1];
+                startQuiz(next.topic, next.container);
+            }
+        };
+        
+        // --- NUEVAS FUNCIONES DE EDICIÓN Y FLASHCARD ---
+        
+        window.openEditChoiceModal = () => {
+            const q = currentQuiz.questions[currentQuiz.index];
+            fillEditModal(q, 'db');
+        };
+        
+        // Función reutilizable para llenar modal
+        function fillEditModal(q, mode) {
+            document.getElementById('edit-mode').value = mode; // 'db', 'temp' or 'manager'
+            document.getElementById('edit-id').value = q.id || q.tempId; // ID real o indice array temporal
+            
+            document.getElementById('edit-question').value = q.question;
+            document.getElementById('edit-justification').value = q.justification || "";
+            
+            const optionsContainer = document.getElementById('edit-options');
+            optionsContainer.innerHTML = '';
+            
+            // Si es flashcard no tiene opciones, manejar eso (aunque el modal es para choice ppalmente)
+            if (q.options) {
+                q.options.forEach((opt, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-2';
+                    div.innerHTML = `
+                        <input type="radio" name="correct-option" value="${idx}" ${idx === q.correctIndex ? 'checked' : ''}>
+                        <input type="text" class="w-full p-2 border rounded edit-opt-input" value="${opt}">
+                    `;
+                    optionsContainer.appendChild(div);
+                });
+            } else {
+                 optionsContainer.innerHTML = '<p class="text-sm text-gray-500 italic">Este ítem es una Flashcard, edita pregunta y respuesta (justificación).</p>';
+            }
+            
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+        
+        document.getElementById('save-edit-btn').onclick = async () => {
+            const mode = document.getElementById('edit-mode').value;
+            const id = document.getElementById('edit-id').value; 
+            const newQ = document.getElementById('edit-question').value;
+            const newJust = document.getElementById('edit-justification').value;
+            const newOpts = Array.from(document.querySelectorAll('.edit-opt-input')).map(i => i.value);
+            
+            let newCorrect = 0;
+            const radio = document.querySelector('input[name="correct-option"]:checked');
+            if (radio) newCorrect = parseInt(radio.value);
+            
+            if (!newQ) return alert("La pregunta es requerida.");
+            // Validacion mas laxa para permitir guardar flashcards si se adaptara
+            
+            if (mode === 'temp') {
+                // Actualizar array temporal
+                const index = parseInt(id);
+                tempGeneratedQuestions[index] = {
+                    ...tempGeneratedQuestions[index],
+                    question: newQ,
+                    options: newOpts,
+                    correctIndex: newCorrect,
+                    justification: newJust
+                };
+                renderGeneratedReview();
+                showToast("Cambios temporales guardados", "success");
+            } else {
+                // Actualizar Firestore (Modo normal o manager)
+                // Determinar coleccion: en practica asumimos 'saved_mcq', en manager podria ser fc
+                // Por simplicidad, el editor actual es SOLO para MCQs. Las FCs se editan diferente o asumimos que son MCQ aqui.
+                // Si venimos del manager, podriamos necesitar saber si es FC o MCQ.
+                
+                // Intentaremos actualizar saved_mcq por defecto
+                try {
+                    await updateDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq', id), {
+                        question: newQ,
+                        options: newOpts,
+                        correctIndex: newCorrect,
+                        justification: newJust
+                    });
+                } catch(e) {
+                    // Si falla, tal vez es una flashcard (saved_questions) - Fallback simple
+                     try {
+                        await updateDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions', id), {
+                            question: newQ,
+                            answer: newJust // En FC, justificacion seria la respuesta
+                        });
+                     } catch(err) { console.error("Update failed", err); }
+                }
+                
+                showToast("Pregunta actualizada", "success");
+
+                // Actualizar Vistas
+                if (mode === 'manager') {
+                     loadManager(); // Recargar admin
+                } else {
+                    // Update Local Cache de practica
+                    const qIndex = currentQuiz.questions.findIndex(x => x.id === id);
+                    if (qIndex !== -1) {
+                        currentQuiz.questions[qIndex] = { ...currentQuiz.questions[qIndex], question: newQ, options: newOpts, correctIndex: newCorrect, justification: newJust };
+                    }
+                    renderQuestion(); 
+                }
+            }
+            
+            document.getElementById('edit-modal').style.display = 'none';
+        };
+        
+        window.openCreateFlashcardModal = () => {
+            const q = currentQuiz.questions[currentQuiz.index];
+            document.getElementById('fc-question').value = q.question;
+            
+            const correctText = q.options[q.correctIndex];
+            const just = q.justification || "";
+            document.getElementById('fc-answer').value = `✅ ${correctText}\n\nℹ️ ${just}`;
+            
+            document.getElementById('flashcard-modal').style.display = 'flex';
+        };
+        
+        document.getElementById('save-fc-btn').onclick = async () => {
+            const qText = document.getElementById('fc-question').value;
+            const aText = document.getElementById('fc-answer').value;
+            const topic = document.getElementById('fc-topic').value.trim() || "Manual Flashcard"; // Usa input topic o default
+            
+            if (!qText || !aText) return alert("Completa pregunta y respuesta");
+            
+            const ref = collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions');
+            await setDoc(doc(ref), {
+                question: qText,
+                answer: aText,
+                topic: topic,
+                container: 'Sin Carpeta', // Default container for new flashcards
+                nextReviewDate: serverTimestamp(),
+                reviewStep: 0
+            });
+            
+            document.getElementById('flashcard-modal').style.display = 'none';
+            showToast("Flashcard creada con éxito", "success");
+        };
+        
+        // NUEVO LISTENER PARA EL BOTÓN DE CREAR FLASHCARD EN REPASO
+        document.getElementById('btn-create-flashcard-review').onclick = () => {
+            // Limpiar campos para una nueva flashcard vacía
+            document.getElementById('fc-question').value = '';
+            document.getElementById('fc-answer').value = '';
+            document.getElementById('fc-topic').value = '';
+            document.getElementById('flashcard-modal').style.display = 'flex';
+        };
+        
+        window.getHint = async () => {
+            const q = currentQuiz.questions[currentQuiz.index];
+            const btn = event.currentTarget;
+            btn.disabled = true;
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = "Pensando...";
+            
+            try {
+                const prompt = `Dame una pista muy breve (una frase) para esta pregunta choice, sin decir la respuesta correcta: "${q.question}". Opciones: ${q.options.join(", ")}`;
+                const hint = await callGemini(prompt, false);
+                
+                // Show hint in feedback area (or create a specific area, reusing feedback for simplicity)
+                const fb = document.getElementById('feedback-area');
+                fb.classList.remove('hidden');
+                fb.classList.add('bg-yellow-50');
+                document.getElementById('feedback-title').innerText = "💡 Pista";
+                document.getElementById('feedback-title').className = "font-bold text-yellow-700 mb-1";
+                document.getElementById('feedback-text').innerText = hint;
+            } catch(e) {
+                console.error(e);
+                alert("Error obteniendo pista");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        };
+        
+        window.nextQuestion = () => {
+            currentQuiz.index++;
+            renderQuestion();
+        };
+
+        window.checkAnswer = async (el, idx) => {
+            const q = currentQuiz.questions[currentQuiz.index];
+            const isCorrect = idx === q.correctIndex;
+            document.querySelectorAll('.mcq-option').forEach(o => o.style.pointerEvents = 'none');
+            el.classList.add(isCorrect ? 'correct' : 'incorrect');
+            
+            if (!isCorrect) {
+                // INCORRECTO
+                document.querySelectorAll('.mcq-option')[q.correctIndex].classList.add('correct');
+                await createErrorFlashcard(q);
+                
+                if (!currentQuiz.incorrectQuestions.some(iq => iq.id === q.id)) {
+                    currentQuiz.incorrectQuestions.push(q);
+                }
+
+                // Lógica de RETROCESO: Si estaba mastered, ahora vuelve a 'review' (pierde el progreso)
+                if (q.status === 'mastered') {
+                    q.status = 'review'; // Actualizar local
+                    updateDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq', q.id), { status: 'review' });
+                }
+
+            } else {
+                // CORRECTO
+                currentQuiz.score++;
+                if (q.status !== 'mastered') {
+                    q.status = 'mastered'; // Actualizar local
+                    updateDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq', q.id), { status: 'mastered' });
+                }
+            }
+            
+            const fb = document.getElementById('feedback-area');
+            fb.classList.remove('hidden', 'bg-yellow-50'); // Remove hint style if present
+            fb.classList.add(isCorrect ? 'bg-green-50' : 'bg-red-50');
+            
+            document.getElementById('feedback-title').textContent = isCorrect ? "¡Correcto!" : "Incorrecto";
+            document.getElementById('feedback-title').className = isCorrect ? "font-bold text-green-700" : "font-bold text-red-700";
+            document.getElementById('feedback-text').textContent = q.justification || 'Sin justificación.';
+            
+            const nextBtn = document.getElementById('next-btn');
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('bg-gray-200', 'text-gray-400', 'cursor-not-allowed');
+            nextBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+        };
+
+        async function createErrorFlashcard(q) {
+            const ref = collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions');
+            await setDoc(doc(ref), {
+                question: q.question,
+                answer: `Correcta: ${q.options[q.correctIndex]} \n\n Por qué: ${q.justification}`,
+                topic: q.topic,
+                container: q.container || 'Sin Carpeta', // Inherit container or default
+                nextReviewDate: serverTimestamp(),
+                reviewStep: 0
+            });
+        }
+
+        // --- REPASO (SRS) ---
+        async function loadReview() {
+            const list = document.getElementById('review-list');
+            list.innerHTML = '<div class="loader"></div>';
+            if (!currentSubject || !userId) return list.innerHTML = '<p class="text-center text-gray-400 py-10">Selecciona una materia.</p>';
+            const now = new Date();
+            const qRef = query(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions'), where('nextReviewDate', '<=', now));
+            const snap = await getDocs(qRef);
+            const cards = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            document.getElementById('review-count').textContent = cards.length;
+            list.innerHTML = '';
+            if (cards.length === 0) { list.innerHTML = '<p class="text-center text-gray-400 py-10">¡Todo al día! No hay errores pendientes.</p>'; return; }
+            let cardIndex = 0;
+            const renderCard = () => {
+                if (cardIndex >= cards.length) { loadReview(); return; }
+                const c = cards[cardIndex];
+                list.innerHTML = `
+                    <div class="qa-card max-w-xl mx-auto border-l-4 border-yellow-400">
+                        <div class="text-xs text-gray-400 mb-2 uppercase tracking-wide">Repaso de Error - ${c.topic || 'General'}</div>
+                        <p class="font-bold text-lg text-gray-800 mb-4">${c.question}</p>
+                        <button id="show-ans" class="w-full py-2 border border-gray-300 rounded text-gray-600 font-bold hover:bg-gray-50">Mostrar Respuesta</button>
+                        <div id="ans-panel" class="hidden mt-4 pt-4 border-t border-gray-100">
+                            <div class="text-sm text-gray-700 bg-gray-50 p-3 rounded mb-4 whitespace-pre-line">${c.answer}</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button class="py-2 bg-red-100 text-red-700 rounded font-bold text-xs" onclick="rateCard('${c.id}', 0)">Olvidé (1m)</button>
+                                <button class="py-2 bg-yellow-100 text-yellow-700 rounded font-bold text-xs" onclick="rateCard('${c.id}', 1)">Difícil (1d)</button>
+                                <button class="py-2 bg-green-100 text-green-700 rounded font-bold text-xs" onclick="rateCard('${c.id}', 3)">Fácil (3d)</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('show-ans').onclick = function() { this.style.display='none'; document.getElementById('ans-panel').classList.remove('hidden'); };
+            };
+            window.rateCard = async (id, days) => {
+                const nextDate = new Date();
+                nextDate.setDate(nextDate.getDate() + (days === 0 ? 0 : days));
+                if (days === 0) nextDate.setMinutes(nextDate.getMinutes() + 10);
+                await updateDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions', id), {
+                    nextReviewDate: nextDate,
+                    reviewStep: days > 0 ? 1 : 0
+                });
+                cardIndex++;
+                renderCard();
+            };
+            renderCard();
+        }
+
+        // --- ADMINISTRADOR (RENOVADO - CARPETAS CON EXPANSION) ---
+        async function loadManager() {
+            const container = document.getElementById('manager-list');
+            container.innerHTML = '<div class="loader"></div>';
+            managerQuestionsCache = {}; // Reset cache
+            managerFoldersCache = []; // Reset folders cache
+            managerTreeCache = {}; // Reset structure cache
+            
+            if (!currentSubject || !userId) {
+                 container.innerHTML = '<p class="text-center text-gray-400 py-10">Selecciona una materia para administrar.</p>'; 
+                 return;
+            }
+            
+            // 1. Cargar Preguntas (Choice y Flashcards)
+            const [mcqSnap, fcSnap, foldersSnap] = await Promise.all([
+                getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq')),
+                getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions')),
+                getDocs(collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'folders'))
+            ]);
+
+            const questions = [
+                ...mcqSnap.docs.map(d => ({ id: d.id, type: 'choice', ...d.data() })),
+                ...fcSnap.docs.map(d => ({ id: d.id, type: 'flashcard', ...d.data() }))
+            ];
+            
+            // Populate cache
+            questions.forEach(q => managerQuestionsCache[q.id] = q);
+            
+            const folders = new Set();
+            foldersSnap.forEach(d => folders.add(d.id)); // ID es nombre
+            managerFoldersCache = Array.from(folders).sort();
+
+            // Agrupar preguntas por Contenedor -> Tema
+            const tree = {};
+            questions.forEach(q => {
+                const c = q.container || 'Sin Carpeta';
+                const t = q.topic || 'General';
+                if(!tree[c]) tree[c] = {};
+                if(!tree[c][t]) tree[c][t] = [];
+                tree[c][t].push(q);
+            });
+            
+            // Asegurar que carpetas vacías existan en el árbol
+            folders.forEach(f => {
+                if (!tree[f]) tree[f] = {};
+            });
+            
+            managerTreeCache = tree; // Save structure for move modal
+
+            container.innerHTML = '';
+            
+            // Orden: "Sin Carpeta" primero, luego alfabético
+            const folderNames = Object.keys(tree).sort((a, b) => {
+                if (a === 'Sin Carpeta') return -1;
+                if (b === 'Sin Carpeta') return 1;
+                return a.localeCompare(b);
+            });
+            
+            if(folderNames.length === 0) {
+                 container.innerHTML = '<p class="text-center text-gray-400">No hay preguntas para administrar. Usa "Crear Carpeta" para empezar.</p>'; 
+            }
+
+            folderNames.forEach(fName => {
+                const hasTopics = Object.keys(tree[fName]).length > 0;
+                let actionButtons = '';
+                if (fName !== 'Sin Carpeta') {
+                    actionButtons = `
+                        <button class="ml-2 text-gray-400 hover:text-blue-600 p-1 rounded-full transition-colors rename-folder-btn" data-folder="${fName}" title="Renombrar">
+                            <svg data-lucide="pencil" class="w-3 h-3"></svg>
+                        </button>
+                        <button class="ml-1 text-gray-400 hover:text-red-600 p-1 rounded-full transition-colors delete-folder-btn" data-folder="${fName}" title="Eliminar">
+                            <svg data-lucide="trash-2" class="w-3 h-3"></svg>
+                        </button>
+                    `;
+                }
+
+                // Cabecera Carpeta
+                const folderHeader = document.createElement('div');
+                folderHeader.className = 'folder-header group'; // group for hovering edit icon
+                folderHeader.innerHTML = `
+                    <div class="flex items-center">
+                        <i data-lucide="folder" class="inline w-4 h-4 mr-2 text-blue-600"></i>
+                        <span class="folder-title-text font-semibold text-gray-700">${fName}</span>
+                        <div class="flex items-center ml-3 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            ${actionButtons}
+                        </div>
+                    </div>
+                    <span class="text-xs text-gray-500 font-normal">(${Object.values(tree[fName]).reduce((acc, arr) => acc + arr.length, 0)} items)</span>
+                `;
+                
+                const folderContent = document.createElement('div');
+                folderContent.className = 'folder-content';
+                
+                if (!hasTopics) {
+                    folderContent.innerHTML = '<p class="text-xs text-gray-400 p-2 italic">Carpeta vacía</p>';
+                } else {
+                    // Lista de Temas
+                    const topicNames = Object.keys(tree[fName]).sort();
+                    topicNames.forEach(tName => {
+                        const topicQuestions = tree[fName][tName];
+                        
+                        const tWrapper = document.createElement('div');
+                        tWrapper.className = 'topic-wrapper';
+                        
+                        // Header del Tema
+                        tWrapper.innerHTML = `
+                            <div class="topic-header">
+                                <div class="flex items-center gap-2 flex-1" onclick="event.stopPropagation()">
+                                    <input type="checkbox" class="topic-check" data-topic="${tName}" data-container="${fName}">
+                                    <span class="text-sm font-medium ml-1">${tName}</span>
+                                    <span class="text-xs text-gray-400">(${topicQuestions.length})</span>
+                                </div>
+                                <div class="text-gray-400 p-1">
+                                     <svg data-lucide="chevron-down" class="w-4 h-4 transform transition-transform chevron-icon"></svg>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // Contenedor de items del tema
+                        const itemsContainer = document.createElement('div');
+                        itemsContainer.className = 'topic-items-container';
+                        
+                        // Renderizar cada pregunta dentro
+                        topicQuestions.forEach(q => {
+                            const qDiv = document.createElement('div');
+                            qDiv.className = 'question-item';
+                            // Icono segun tipo
+                            const icon = q.type === 'choice' ? '<svg data-lucide="check-square" class="w-3 h-3 text-blue-500"></svg>' : '<svg data-lucide="sticky-note" class="w-3 h-3 text-yellow-500"></svg>';
+                            
+                            qDiv.innerHTML = `
+                                <div class="flex items-center gap-2 overflow-hidden flex-1">
+                                    <input type="checkbox" class="question-check mr-2" data-id="${q.id}" data-type="${q.type}" onclick="event.stopPropagation()">
+                                    ${icon}
+                                    <span class="truncate text-gray-600 flex-1" title="${q.question}">${q.question}</span>
+                                </div>
+                                <div class="flex items-center gap-1 ml-2">
+                                    <button class="p-1 text-gray-400 hover:text-blue-600 rounded transition-colors" onclick="editManagerItem('${q.id}')" title="Editar">
+                                        <svg data-lucide="pencil" class="w-3 h-3"></svg>
+                                    </button>
+                                    <button class="p-1 text-gray-400 hover:text-red-600 rounded transition-colors" onclick="deleteManagerItem('${q.id}', '${q.type}')" title="Borrar">
+                                        <svg data-lucide="trash-2" class="w-3 h-3"></svg>
+                                    </button>
+                                </div>
+                            `;
+                            // Click en el item selecciona el checkbox
+                            qDiv.onclick = (e) => {
+                                if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SVG' && e.target.tagName !== 'PATH') {
+                                    const ck = qDiv.querySelector('.question-check');
+                                    ck.checked = !ck.checked;
+                                    updateQuestionToolbar(); // Update toolbar
+                                }
+                            };
+                            
+                            itemsContainer.appendChild(qDiv);
+                        });
+
+                        tWrapper.appendChild(itemsContainer);
+                        
+                        // Logic to expand topic
+                        const header = tWrapper.querySelector('.topic-header');
+                        const chevron = tWrapper.querySelector('.chevron-icon');
+                        
+                        header.onclick = (e) => {
+                             // Si el click fue en el checkbox o input, no togglear aqui (se propaga evento)
+                             if (e.target.tagName === 'INPUT') return;
+                             
+                             itemsContainer.classList.toggle('open');
+                             if(itemsContainer.classList.contains('open')) {
+                                 chevron.style.transform = 'rotate(180deg)';
+                                 header.classList.add('selected');
+                             } else {
+                                 chevron.style.transform = 'rotate(0deg)';
+                                 header.classList.remove('selected');
+                             }
+                        };
+
+                        folderContent.appendChild(tWrapper);
+                    });
+                }
+                
+                // Abrir/Cerrar carpeta al click
+                folderHeader.onclick = (e) => {
+                    if (e.target.closest('.rename-folder-btn') || e.target.closest('.delete-folder-btn')) return;
+                    folderContent.classList.toggle('open');
+                };
+                
+                // Renombrar Carpeta
+                const renameBtn = folderHeader.querySelector('.rename-folder-btn');
+                if (renameBtn) {
+                    renameBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        renameFolder(fName);
+                    };
+                }
+
+                // Eliminar Carpeta
+                const deleteBtn = folderHeader.querySelector('.delete-folder-btn');
+                if (deleteBtn) {
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        deleteFolder(fName);
+                    };
+                }
+                
+                container.appendChild(folderHeader);
+                container.appendChild(folderContent);
+            });
+            
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Listeners para toolbar
+            document.querySelectorAll('.topic-check').forEach(chk => { chk.onchange = updateManagerToolbar; });
+            document.querySelectorAll('.question-check').forEach(chk => { chk.onchange = updateQuestionToolbar; });
+        }
+        
+        // --- NUEVAS FUNCIONES DE GESTION DE ITEMS ---
+        window.editManagerItem = (id) => {
+            const q = managerQuestionsCache[id];
+            if(q) fillEditModal(q, 'manager');
+        };
+        
+        window.deleteManagerItem = async (id, type) => {
+            if(!confirm("¿Eliminar esta pregunta permanentemente?")) return;
+            
+            showProgress("Eliminando...", "Borrando item...", 50);
+            try {
+                const colName = type === 'choice' ? 'saved_mcq' : 'saved_questions';
+                await deleteDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, colName, id));
+                hideProgress();
+                showToast("Pregunta eliminada", "success");
+                loadManager(); // Recargar lista
+            } catch(e) {
+                hideProgress();
+                console.error(e);
+                showToast("Error al eliminar", "error");
+            }
+        };
+        
+        function updateManagerToolbar() {
+            const checked = document.querySelectorAll('.topic-check:checked');
+            document.getElementById('btn-move-folder').disabled = checked.length === 0;
+            document.getElementById('btn-rename-topic').disabled = checked.length !== 1;
+            document.getElementById('btn-merge-topics').disabled = checked.length < 2; // Minimo 2 para fusionar
+        }
+
+        // --- GESTION ITEMS INDIVIDUALES (TOOLBAR) ---
+        function updateQuestionToolbar() {
+             const checked = document.querySelectorAll('.question-check:checked');
+             const btn = document.getElementById('btn-move-questions');
+             if (checked.length > 0) {
+                 btn.classList.remove('hidden');
+                 btn.innerHTML = `<svg data-lucide="arrow-right-left" class="w-4 h-4"></svg> Mover (${checked.length})`;
+                 if(typeof lucide !== 'undefined') lucide.createIcons();
+             } else {
+                 btn.classList.add('hidden');
+             }
+        }
+
+        // --- MOVER PREGUNTAS INDIVIDUALES ---
+        document.getElementById('btn-move-questions').onclick = () => {
+             const checked = document.querySelectorAll('.question-check:checked');
+             if(checked.length === 0) return;
+             
+             document.getElementById('move-q-count').innerText = `${checked.length} ITEMS SELECCIONADOS`;
+             
+             // Popular Carpetas
+             const folderSel = document.getElementById('mq-folder-select');
+             folderSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+             folderSel.innerHTML += '<option value="Sin Carpeta">Sin Carpeta</option>';
+             managerFoldersCache.forEach(f => {
+                 if (f !== 'Sin Carpeta') folderSel.innerHTML += `<option value="${f}">${f}</option>`;
+             });
+
+             // Resetear topics
+             const topicSel = document.getElementById('mq-topic-select');
+             topicSel.innerHTML = '<option value="">-- Selecciona carpeta primero --</option>';
+             topicSel.disabled = true;
+             document.getElementById('mq-new-topic').disabled = true;
+             document.getElementById('mq-mode-existing').checked = true;
+
+             document.getElementById('move-questions-modal').style.display = 'flex';
+        };
+
+        // Lógica dinámica del Modal Mover Preguntas
+        document.getElementById('mq-folder-select').onchange = (e) => {
+             const folderName = e.target.value;
+             const topicSel = document.getElementById('mq-topic-select');
+             
+             if (!folderName) {
+                 topicSel.innerHTML = '<option value="">-- Selecciona carpeta primero --</option>';
+                 topicSel.disabled = true;
+                 return;
+             }
+
+             // Buscar temas en esa carpeta usando el cache
+             const topics = managerTreeCache[folderName] ? Object.keys(managerTreeCache[folderName]) : [];
+             
+             topicSel.innerHTML = '';
+             if (topics.length > 0) {
+                 topics.sort().forEach(t => topicSel.innerHTML += `<option value="${t}">${t}</option>`);
+                 topicSel.disabled = false;
+                 document.getElementById('mq-mode-existing').disabled = false;
+                 document.getElementById('mq-mode-existing').checked = true;
+             } else {
+                 topicSel.innerHTML = '<option value="">(Carpeta vacía, crea tema)</option>';
+                 topicSel.disabled = true;
+                 document.getElementById('mq-mode-new').checked = true;
+                 document.getElementById('mq-new-topic').disabled = false;
+                 document.getElementById('mq-new-topic').focus();
+             }
+        };
+
+        // Switch entre Existing / New Topic
+        document.querySelectorAll('input[name="mq-topic-mode"]').forEach(radio => {
+            radio.onchange = (e) => {
+                const isNew = e.target.value === 'new';
+                document.getElementById('mq-new-topic').disabled = !isNew;
+                document.getElementById('mq-topic-select').disabled = isNew;
+                if(isNew) document.getElementById('mq-new-topic').focus();
+            };
+        });
+
+        document.getElementById('confirm-move-questions').onclick = async () => {
+             const folder = document.getElementById('mq-folder-select').value;
+             if (!folder) return alert("Selecciona una carpeta destino.");
+
+             const mode = document.querySelector('input[name="mq-topic-mode"]:checked').value;
+             let targetTopic = "";
+
+             if (mode === 'new') {
+                 targetTopic = document.getElementById('mq-new-topic').value.trim();
+                 if (!targetTopic) return alert("Escribe un nombre para el nuevo tema.");
+             } else {
+                 targetTopic = document.getElementById('mq-topic-select').value;
+                 if (!targetTopic) return alert("Selecciona un tema existente.");
+             }
+
+             document.getElementById('move-questions-modal').style.display = 'none';
+             showProgress("Moviendo...", "Actualizando preguntas...", 50);
+
+             const checked = Array.from(document.querySelectorAll('.question-check:checked'));
+             const batch = writeBatch(db);
+
+             checked.forEach(ck => {
+                 const id = ck.dataset.id;
+                 const type = ck.dataset.type; // choice | flashcard
+                 const colName = type === 'choice' ? 'saved_mcq' : 'saved_questions';
+                 
+                 const ref = doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, colName, id);
+                 batch.update(ref, {
+                     container: folder,
+                     topic: targetTopic
+                 });
+             });
+
+             try {
+                 await batch.commit();
+                 hideProgress();
+                 showToast(`Items movidos a ${folder} / ${targetTopic}`, "success");
+                 loadManager();
+                 // Esconder botón
+                 document.getElementById('btn-move-questions').classList.add('hidden');
+             } catch (e) {
+                 hideProgress();
+                 console.error(e);
+                 showToast("Error al mover items", "error");
+             }
+        };
+        
+        // --- CREAR CARPETA ---
+        document.getElementById('btn-create-folder').onclick = () => {
+            document.getElementById('create-folder-input').value = '';
+            document.getElementById('new-folder-modal').style.display = 'flex';
+            document.getElementById('create-folder-input').focus();
+        };
+
+        document.getElementById('confirm-create-folder').onclick = async () => {
+            const name = document.getElementById('create-folder-input').value.trim();
+            if (!name) return;
+            
+            document.getElementById('new-folder-modal').style.display = 'none';
+            showProgress("Creando...", "Guardando carpeta...", 50);
+            
+            try {
+                // Guardar en colección dedicada para persistencia de vacías
+                await setDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'folders', name), {
+                    created: serverTimestamp()
+                });
+                
+                hideProgress();
+                showToast(`Carpeta "${name}" creada.`, "success");
+                loadManager();
+            } catch (e) {
+                hideProgress();
+                console.error(e);
+                showToast("Error creando carpeta.", "error");
+            }
+        };
+
+        // --- FUSIONAR TEMAS (MERGE) ---
+        document.getElementById('btn-merge-topics').onclick = async () => {
+            const checked = Array.from(document.querySelectorAll('.topic-check:checked'));
+            if(checked.length < 2) return;
+            
+            // Nombres seleccionados
+            const topicsToMerge = new Set(checked.map(c => c.dataset.topic));
+            
+            // Sugerir el nombre del primero
+            const firstTopic = checked[0].dataset.topic;
+            const newName = prompt(`Fusionar ${topicsToMerge.size} temas en uno nuevo llamado:`, firstTopic);
+            
+            if(!newName || !newName.trim()) return;
+            
+            showProgress("Fusionando...", "Unificando preguntas...", 30);
+            
+            const batch = writeBatch(db);
+            let count = 0;
+            
+            // Iterar sobre selección para buscar y actualizar
+            // Update both collections: saved_mcq and saved_questions
+            for (const item of checked) {
+                const oldTopic = item.dataset.topic;
+                const oldContainer = item.dataset.container;
+                
+                // Query saved_mcq
+                const qMCQ = query(
+                    collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'),
+                    where('topic', '==', oldTopic)
+                );
+                const snapMCQ = await getDocs(qMCQ);
+                snapMCQ.forEach(doc => {
+                    const data = doc.data();
+                    const docContainer = data.container || 'Sin Carpeta';
+                    if (docContainer === oldContainer) {
+                        batch.update(doc.ref, { topic: newName });
+                        count++;
+                    }
+                });
+
+                // Query saved_questions (flashcards)
+                const qFC = query(
+                    collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions'),
+                    where('topic', '==', oldTopic)
+                );
+                const snapFC = await getDocs(qFC);
+                snapFC.forEach(doc => {
+                    const data = doc.data();
+                    const docContainer = data.container || 'Sin Carpeta';
+                    if (docContainer === oldContainer) {
+                        batch.update(doc.ref, { topic: newName });
+                        count++;
+                    }
+                });
+            }
+            
+            await batch.commit();
+            hideProgress();
+            showToast(`¡Listo! ${count} items unificados en "${newName}".`, "success");
+            loadManager();
+        };
+        
+        // --- MOVER A CARPETA (CORREGIDO) ---
+        document.getElementById('btn-move-folder').onclick = () => {
+             const checked = document.querySelectorAll('.topic-check:checked');
+             if(checked.length === 0) return;
+             
+             // Poblar select con carpetas existentes (desde el DOM headers)
+             const existingFolders = new Set();
+             document.querySelectorAll('.folder-title-text').forEach(el => { 
+                 if(el.innerText) existingFolders.add(el.innerText.trim());
+             });
+             // También agregar "Sin Carpeta" explícitamente si no está
+             existingFolders.add('Sin Carpeta');
+             
+             const sel = document.getElementById('existing-folder-select');
+             sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+             existingFolders.forEach(f => {
+                 if(f) sel.innerHTML += `<option value="${f}">${f}</option>`;
+             });
+             
+             document.getElementById('move-folder-modal').style.display = 'flex';
+        };
+        
+        document.querySelectorAll('input[name="folder-dest"]').forEach(radio => {
+            radio.onchange = (e) => {
+                const isNew = e.target.value === 'new';
+                document.getElementById('new-folder-input').disabled = !isNew;
+                document.getElementById('existing-folder-select').disabled = isNew;
+            };
+        });
+
+        document.getElementById('confirm-move-folder').onclick = async () => {
+            const mode = document.querySelector('input[name="folder-dest"]:checked').value;
+            let targetFolder = '';
+            
+            if (mode === 'new') {
+                targetFolder = document.getElementById('new-folder-input').value.trim();
+                if (!targetFolder) return alert("Escribe un nombre para la carpeta");
+                
+                // Si es nueva, la registramos también en collection 'folders' para consistencia
+                setDoc(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'folders', targetFolder), { created: serverTimestamp() });
+            } else {
+                targetFolder = document.getElementById('existing-folder-select').value;
+                if (!targetFolder) return alert("Selecciona una carpeta");
+            }
+            
+            document.getElementById('move-folder-modal').style.display = 'none';
+            showProgress("Moviendo...", "Actualizando base de datos...", 50);
+            
+            const selected = Array.from(document.querySelectorAll('.topic-check:checked')).map(c => ({
+                topic: c.dataset.topic,
+                currentContainer: c.dataset.container
+            }));
+            
+            const batch = writeBatch(db);
+            for (const item of selected) {
+                // Query saved_mcq
+                const qMCQ = query(
+                    collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'),
+                    where('topic', '==', item.topic)
+                );
+                const snapMCQ = await getDocs(qMCQ);
+                snapMCQ.forEach(doc => {
+                    const data = doc.data();
+                    const docContainer = data.container || 'Sin Carpeta';
+                    
+                    if (docContainer === item.currentContainer) {
+                        batch.update(doc.ref, { container: targetFolder });
+                    }
+                });
+
+                // Query saved_questions (flashcards)
+                const qFC = query(
+                    collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions'),
+                    where('topic', '==', item.topic)
+                );
+                const snapFC = await getDocs(qFC);
+                snapFC.forEach(doc => {
+                    const data = doc.data();
+                    const docContainer = data.container || 'Sin Carpeta';
+                    
+                    if (docContainer === item.currentContainer) {
+                        batch.update(doc.ref, { container: targetFolder });
+                    }
+                });
+            }
+            
+            await batch.commit();
+            hideProgress();
+            showToast(`Movidos a "${targetFolder}"`, "success");
+            loadManager();
+        };
+
+        // --- RENOMBRAR CARPETA ---
+        async function renameFolder(oldName) {
+            if (oldName === 'Sin Carpeta') {
+                return alert("No puedes renombrar la carpeta por defecto 'Sin Carpeta'. Mueve su contenido a otra carpeta si deseas organizarlo.");
+            }
+
+            const newName = prompt(`Nuevo nombre para la carpeta "${oldName}":`, oldName);
+            if (!newName || newName === oldName || !newName.trim()) return;
+            
+            showProgress("Renombrando...", "Actualizando carpeta...", 30);
+            
+            try {
+                const batch = writeBatch(db);
+                
+                // 1. Crear nueva entrada en 'folders'
+                const newFolderRef = doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'folders', newName);
+                batch.set(newFolderRef, { created: serverTimestamp() });
+                
+                // 2. Borrar antigua entrada en 'folders' (si existe)
+                const oldFolderRef = doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'folders', oldName);
+                batch.delete(oldFolderRef);
+                
+                // 3. Actualizar todas las preguntas con ese container (MCQ y Flashcards)
+                const qMCQ = collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq');
+                const snapMCQ = await getDocs(qMCQ);
+                
+                snapMCQ.forEach(doc => {
+                    const data = doc.data();
+                    const docContainer = data.container || 'Sin Carpeta';
+                    
+                    if (docContainer === oldName) {
+                        batch.update(doc.ref, { container: newName });
+                    }
+                });
+
+                const qFC = collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions');
+                const snapFC = await getDocs(qFC);
+                
+                snapFC.forEach(doc => {
+                    const data = doc.data();
+                    const docContainer = data.container || 'Sin Carpeta';
+                    
+                    if (docContainer === oldName) {
+                        batch.update(doc.ref, { container: newName });
+                    }
+                });
+                
+                await batch.commit();
+                hideProgress();
+                showToast("Carpeta renombrada.", "success");
+                loadManager();
+                
+            } catch (e) {
+                hideProgress();
+                console.error(e);
+                showToast("Error al renombrar.", "error");
+            }
+        }
+
+        // --- ELIMINAR CARPETA ---
+        async function deleteFolder(folderName) {
+            if (!confirm(`¿Seguro que quieres eliminar la carpeta "${folderName}"?\n\nLos temas que contiene NO se borrarán, se moverán a "Sin Carpeta".`)) return;
+            
+            showProgress("Eliminando...", "Reorganizando contenido...", 50);
+            try {
+                const batch = writeBatch(db);
+                
+                // 1. Eliminar de colección 'folders'
+                batch.delete(doc(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'folders', folderName));
+                
+                // 2. Mover items a 'Sin Carpeta' (MCQ y Flashcards)
+                // Buscar items en este container (MCQ)
+                const qMCQ = query(
+                    collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'),
+                    where('container', '==', folderName)
+                );
+                const snapMCQ = await getDocs(qMCQ);
+                snapMCQ.forEach(d => {
+                    batch.update(d.ref, { container: 'Sin Carpeta' });
+                });
+
+                // Buscar items en este container (FC)
+                const qFC = query(
+                    collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions'),
+                    where('container', '==', folderName)
+                );
+                const snapFC = await getDocs(qFC);
+                snapFC.forEach(d => {
+                    batch.update(d.ref, { container: 'Sin Carpeta' });
+                });
+                
+                await batch.commit();
+                hideProgress();
+                showToast("Carpeta eliminada.", "success");
+                loadManager();
+            } catch(e) {
+                hideProgress();
+                console.error(e);
+                showToast("Error al eliminar.", "error");
+            }
+        }
+
+        // --- RENOMBRAR TEMA ---
+        document.getElementById('btn-rename-topic').onclick = async () => {
+            const checked = document.querySelector('.topic-check:checked');
+            if(!checked) return;
+            
+            const oldName = checked.dataset.topic;
+            const container = checked.dataset.container;
+            
+            const newName = prompt(`Renombrar tema "${oldName}" a:`, oldName);
+            if(!newName || newName === oldName) return;
+            
+            showProgress("Renombrando...", "Actualizando preguntas...", 50);
+            
+            const batch = writeBatch(db);
+
+            // Update saved_mcq
+            const qMCQ = query(
+                collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_mcq'),
+                where('topic', '==', oldName)
+            );
+            const snapMCQ = await getDocs(qMCQ);
+            snapMCQ.forEach(doc => {
+                const data = doc.data();
+                const docContainer = data.container || 'Sin Carpeta';
+                if (docContainer === container) {
+                    batch.update(doc.ref, { topic: newName });
+                }
+            });
+
+            // Update saved_questions
+            const qFC = query(
+                collection(db, 'artifacts', firebaseConfig.projectId, 'users', userId, 'subjects', currentSubject, 'saved_questions'),
+                where('topic', '==', oldName)
+            );
+            const snapFC = await getDocs(qFC);
+            snapFC.forEach(doc => {
+                const data = doc.data();
+                const docContainer = data.container || 'Sin Carpeta';
+                if (docContainer === container) {
+                    batch.update(doc.ref, { topic: newName });
+                }
+            });
+            
+            await batch.commit();
+            hideProgress();
+            showToast("Tema renombrado.", "success");
+            loadManager();
+        };
+
+        // --- UTILS ---
+        function showProgress(t, s, p) {
+            document.getElementById('progress-modal').style.display = 'flex';
+            document.getElementById('progress-title').textContent = t;
+            document.getElementById('progress-step').textContent = s;
+            document.getElementById('progress-bar-fill').style.width = p + '%';
+        }
+        function hideProgress() { document.getElementById('progress-modal').style.display = 'none'; }
+        
+        function showToast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            t.className = `show ${type}`;
+            t.textContent = msg;
+            setTimeout(() => { t.className = t.className.replace('show', ''); }, 3000);
+        }
+
+        async function callGemini(userQuery, expectJson) {
+            const storedKey = localStorage.getItem('sim_tutor_api_key');
+            const finalKey = storedKey || (typeof apiKey !== 'undefined' ? apiKey : "");
+            
+            if (!finalKey) throw new Error("Falta la API Key. Ve a Configuración (⚙️) y añádela.");
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${finalKey}`;
+            // Versión estable y rápida
+            //const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${finalKey}`;
+            //const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${finalKey}`;
+            
+            const payload = { 
+                contents: [{ parts: [{ text: userQuery }] }],
+                generationConfig: expectJson ? { responseMimeType: "application/json" } : {}
+            };
+            
+            let retries = 3;
+            let delay = 1000;
+            
+            while (retries > 0) {
+                try {
+                    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!resp.ok) throw new Error(`API Error: ${resp.status}`);
+                    const result = await resp.json();
+                    const text = result.candidates[0].content.parts[0].text;
+                    return expectJson ? JSON.parse(text) : text;
+                } catch (error) {
+                    console.warn(`Retry Gemini... ${error}`);
+                    retries--;
+                    if (retries === 0) throw error;
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+        }
+        
+        document.querySelectorAll('.upload-btn').forEach(b => {
+            b.onclick = () => {
+                const input = document.getElementById('hidden-pdf-input');
+                // Limpiar valor anterior para permitir subir el mismo archivo si hubo error
+                input.value = '';
+
+                input.onchange = async (e) => {
+                    if (e.target.files[0]) {
+                        const t = document.getElementById(b.dataset.target);
+                        const originalPlaceholder = t.placeholder;
+                        
+                        // Estado visual de carga
+                        t.disabled = true;
+                        t.classList.add('bg-gray-50', 'text-gray-500');
+                        t.value = "Iniciando lectura del PDF...";
+                        
+                        try {
+                            const buf = await e.target.files[0].arrayBuffer();
+                            const pdf = await pdfjsLib.getDocument(buf).promise;
+                            const totalPages = pdf.numPages;
+                            let txt = "";
+                            
+                            // Iterar páginas con reporte de progreso
+                            for(let i=1; i<=totalPages; i++) {
+                                const percent = Math.round((i / totalPages) * 100);
+                                t.value = `⏳ Leyendo PDF... ${percent}% completado\n(Procesando página ${i} de ${totalPages})`;
+                                
+                                const page = await pdf.getPage(i);
+                                const content = await page.getTextContent();
+                                const pageText = content.items.map(s => s.str).join(' ');
+                                txt += pageText + "\n";
+                            }
+                            
+                            t.value = txt;
+                            showToast(`PDF cargado con éxito (${totalPages} páginas)`, "success");
+                            
+                        } catch (err) {
+                            console.error(err);
+                            t.value = "";
+                            t.placeholder = "Error al leer el archivo. Por favor intenta con otro PDF.";
+                            showToast("Error al procesar el PDF", "error");
+                        } finally {
+                            // Restaurar estado
+                            t.disabled = false;
+                            t.classList.remove('bg-gray-50', 'text-gray-500');
+                        }
+                    }
+                };
+                input.click();
+            };
+        });
+
+        init();
+    </script>
+</body>
+</html>
